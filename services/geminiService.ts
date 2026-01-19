@@ -3,10 +3,10 @@ import { CalculationResult } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
-const TEXT_MODEL = 'gemini-2.0-flash';
-const CHAT_MODEL = 'gemini-2.0-flash';
-const EDIT_MODEL = 'gemini-2.0-flash';
-const GEN_MODEL = 'gemini-2.0-flash';
+const TEXT_MODEL = 'gemini-3-flash-preview';
+const CHAT_MODEL = 'gemini-3-pro-preview';
+const EDIT_MODEL = 'gemini-2.5-flash-image';
+const GEN_MODEL = 'gemini-3-pro-image-preview';
 
 // --- ESTIMATION LOGIC ---
 export const calculateEstimate = async (
@@ -173,22 +173,21 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
   if (!process.env.API_KEY) return null;
 
   try {
-    const sizeMap = { '1K': '1024x1024', '2K': '1536x1536', '4K': '2048x2048' };
-
     const response = await ai.models.generateContent({
       model: GEN_MODEL,
       contents: {
-        parts: [{
-          text: `Generate a high-quality interior design image: ${prompt}. The image should be photorealistic and show a professional interior space.`
-        }]
+        parts: [{ text: prompt }]
+      },
+      config: {
+        imageConfig: {
+          imageSize: size
+        }
       }
     });
 
-    if (response.candidates && response.candidates[0]) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          return `data:image/png;base64,${part.inlineData.data}`;
-        }
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
     return null;

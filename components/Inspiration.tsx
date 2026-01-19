@@ -7,22 +7,11 @@ import React, { useState } from 'react';
       const [size, setSize] = useState<'1K' | '2K' | '4K'>('1K');
       const [generatedImage, setGeneratedImage] = useState<string | null>(null);
       const [isGenerating, setIsGenerating] = useState(false);
-      const [error, setError] = useState<string | null>(null);
 
       const handleGenerate = async () => {
         setIsGenerating(true);
-        setError(null);
-        try {
-          const result = await generateInspiration(prompt, size);
-          if (result) {
-            setGeneratedImage(result);
-          } else {
-            setError("Impossible de générer l'image. Veuillez réessayer.");
-          }
-        } catch (err) {
-          setError("Une erreur s'est produite lors de la génération.");
-          console.error(err);
-        }
+        const result = await generateInspiration(prompt, size);
+        setGeneratedImage(result);
         setIsGenerating(false);
       };
 
@@ -79,17 +68,7 @@ import React, { useState } from 'react';
 
               <div className="md:w-1/2">
                 <div className="aspect-square bg-white rounded-2xl shadow-2xl overflow-hidden relative flex items-center justify-center border-8 border-white">
-                  {error ? (
-                    <div className="text-center p-8">
-                      <p className="text-red-500 font-sans text-lg mb-4">{error}</p>
-                      <button
-                        onClick={handleGenerate}
-                        className="text-action-orange hover:text-action-hover underline font-medium"
-                      >
-                        Réessayer
-                      </button>
-                    </div>
-                  ) : generatedImage ? (
+                  {generatedImage ? (
                     <img src={generatedImage} alt="Generated Inspiration" className="w-full h-full object-cover" />
                   ) : (
                     <div className="text-center p-8">
@@ -105,7 +84,7 @@ import React, { useState } from 'react';
                       </div>
                     </div>
                   )}
-                  {generatedImage && !isGenerating && (
+                  {generatedImage && (
                      <a href={generatedImage} download="inspiration.png" className="absolute bottom-4 right-4 bg-white/90 p-3 rounded-full shadow-lg hover:scale-110 transition-transform text-brand-dark">
                        <Download size={20} />
                      </a>
