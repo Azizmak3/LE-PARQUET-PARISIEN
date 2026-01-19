@@ -32,6 +32,8 @@ const Renovator: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [sliderPosition, setSliderPosition] = useState(50);
   const [selectedFinish, setSelectedFinish] = useState('vitrification-mat');
+  const [imgLoadError, setImgLoadError] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visualizerRef = useRef<HTMLDivElement>(null);
 
@@ -44,22 +46,26 @@ const Renovator: React.FC = () => {
     }
   }, [imagePreview]);
 
-  // Clean up blob URLs to prevent memory leaks
+  // Clean up blob URLs to prevent memory leaks (Only for preview now, processed is Data URL)
   useEffect(() => {
     return () => {
-        if (processedImage && processedImage.startsWith('blob:')) {
-            URL.revokeObjectURL(processedImage);
-        }
         if (imagePreview && imagePreview.startsWith('blob:')) {
             URL.revokeObjectURL(imagePreview);
         }
+        // Processed image is now a Data URL string, no need to revoke
     };
-  }, [processedImage, imagePreview]);
+  }, [imagePreview]);
 
-  // Mobile Safari Fix: Preload blob image to ensure rendering
+  // Force image preloading when processedImage is set
   useEffect(() => {
     if (processedImage) {
+      setImgLoadError(false);
       const img = new Image();
+      img.onload = () => console.log('[RENOVATOR] Processed image preloaded successfully');
+      img.onerror = () => {
+          console.error('[RENOVATOR] Failed to preload processed image');
+          setImgLoadError(true);
+      };
       img.src = processedImage;
     }
   }, [processedImage]);
@@ -70,13 +76,14 @@ const Renovator: React.FC = () => {
       console.log('[UPLOAD] File selected:', file.name, file.size, 'bytes');
       fileRef.current = file;
       
-      // Use Blob URL instead of Base64 to save memory on mobile
+      // Use Blob URL for preview (input side is fine with blobs usually)
       const objectUrl = URL.createObjectURL(file);
       setImagePreview(objectUrl);
       
       setProcessedImage(null);
       setIsLocked(false);
       setError(null);
+      setImgLoadError(false);
       setSelectedFinish('vitrification-mat');
     }
   };
@@ -88,6 +95,7 @@ const Renovator: React.FC = () => {
     setProcessedImage(null);
     setIsLocked(false);
     setError(null);
+    setImgLoadError(false);
     setSelectedFinish('vitrification-mat');
   };
 
@@ -107,6 +115,7 @@ const Renovator: React.FC = () => {
 
     setIsProcessing(true);
     setError(null);
+    setImgLoadError(false);
 
     // CRITICAL: Failsafe timer to FORCE spinner stop
     const failsafeTimer = setTimeout(() => {
@@ -145,8 +154,8 @@ const Renovator: React.FC = () => {
       clearTimeout(failsafeTimer);
 
       if (result) {
-        console.log('[PROCESS] SUCCESS - got result:', result);
-        setProcessedImage(result);
+        console.log('[PROCESS] SUCCESS - got result length:', result.length);
+        setProcessedImage(result); // This is now a Data URL string
         if (!processedImage) {
           setIsLocked(true); // Lock only on first successful generation
         }
@@ -159,9 +168,7 @@ const Renovator: React.FC = () => {
     } catch (err: any) {
       clearTimeout(failsafeTimer);
       console.error('[PROCESS] Caught error:', err);
-      
       setError(err.message || "Une erreur inattendue est survenue.");
-      
     } finally {
       console.log('[PROCESS] Finally block - stopping spinner');
       setIsProcessing(false);
@@ -201,6 +208,7 @@ const Renovator: React.FC = () => {
     setError(null);
     setIsProcessing(false);
     setIsLocked(false);
+    setImgLoadError(false);
     fileRef.current = null;
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -306,11 +314,11 @@ const Renovator: React.FC = () => {
 
                     <div className="relative w-full bg-gray-100 overflow-hidden group flex-1 min-h-[350px] md:min-h-[500px]">
                         {/* ERROR STATE */}
-                        {error && (
+                        {(error || imgLoadError) && (
                              <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-50 backdrop-blur-md px-4 text-center">
                                 <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
                                 <h3 className="text-xl font-bold text-brand-dark mb-2">Une erreur est survenue</h3>
-                                <p className="text-gray-500 mb-6 text-sm max-w-sm">{error}</p>
+                                <p className="text-gray-500 mb-6 text-sm max-w-sm">{error || "Impossible d'afficher l'image. Votre navigateur mobile peut manquer de mémoire."}</p>
                                 <div className="flex gap-3">
                                     <button 
                                         onClick={() => handleProcess()}
@@ -345,7 +353,7 @@ const Renovator: React.FC = () => {
                         )}
 
                         {/* LOCKED STATE */}
-                        {isLocked && processedImage && !error && (
+                        {isLocked && processedImage && !error && !imgLoadError && (
                             <div className="absolute inset-0 z-40 backdrop-blur-xl bg-white/40 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
                                 <div className="bg-white p-6 md:p-10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] max-w-md w-full border border-gray-100 transform scale-100 hover:scale-[1.02] transition-transform duration-300">
                                     <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-action-orange to-orange-400 rounded-2xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-orange-200">
@@ -384,12 +392,15 @@ const Renovator: React.FC = () => {
                             </div>
                         </>
                         ) : (
-                        <div className="relative w-full h-full select-none cursor-ew-resize touch-none"
+                        <div className="relative w-full h-full select-none cursor-ew-resize touch-none bg-gray-100"
                             style={{
                                 WebkitUserSelect: 'none',
                                 WebkitTouchCallout: 'none',
-                                transform: 'translateZ(0)', // Force Hardware Acceleration
-                                WebkitTransform: 'translateZ(0)'
+                                transform: 'translate3d(0,0,0)', // Aggressive Hardware Acceleration
+                                WebkitTransform: 'translate3d(0,0,0)',
+                                backfaceVisibility: 'hidden',
+                                WebkitBackfaceVisibility: 'hidden',
+                                isolation: 'isolate'
                             }}
                             onMouseMove={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
@@ -405,12 +416,14 @@ const Renovator: React.FC = () => {
                             {/* After Image (Background) */}
                             <div className="absolute inset-0 w-full h-full">
                                 <img 
+                                    key={processedImage} // Force re-render on new image
                                     src={processedImage} 
                                     alt="After" 
+                                    decoding="sync" // Ensure synchronous decoding before paint for mobile
                                     loading="eager"
-                                    className="w-full h-full object-cover filter brightness-110 saturate-125 contrast-110 block"
+                                    onError={() => setImgLoadError(true)}
+                                    className="w-full h-full object-cover block"
                                     style={{
-                                        display: 'block',
                                         width: '100%',
                                         height: '100%',
                                         objectFit: 'cover'
@@ -424,17 +437,18 @@ const Renovator: React.FC = () => {
                                 style={{ 
                                     clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
                                     WebkitClipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
-                                    transform: 'translateZ(0)',
-                                    WebkitTransform: 'translateZ(0)'
+                                    transform: 'translate3d(0,0,0)',
+                                    WebkitTransform: 'translate3d(0,0,0)',
+                                    willChange: 'clip-path' // Hint to browser
                                 }}
                             >
                                 <img 
                                     src={imagePreview} 
                                     alt="Before" 
+                                    decoding="sync"
                                     loading="eager"
                                     className="w-full h-full object-cover grayscale brightness-90 block" 
                                     style={{
-                                        display: 'block',
                                         width: '100%',
                                         height: '100%',
                                         objectFit: 'cover'
@@ -460,7 +474,7 @@ const Renovator: React.FC = () => {
 
                   {/* Sidebar / Controls */}
                   <div className="w-full md:w-1/4 bg-white border-l border-gray-100 flex flex-col z-10">
-                      {!isLocked && processedImage && !error ? (
+                      {!isLocked && processedImage && !error && !imgLoadError ? (
                           <div className="p-4 md:p-6 space-y-6 h-full flex flex-col">
                              <div>
                                 <h3 className="font-bold text-sm mb-3 text-brand-dark">Essayez différentes finitions :</h3>

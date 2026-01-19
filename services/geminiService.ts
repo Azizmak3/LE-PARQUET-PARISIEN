@@ -286,18 +286,19 @@ CRITICAL INSTRUCTIONS:
 
     if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
         const resultBase64 = imagePart.inlineData.data;
-        // TS2769 FIX: Ensure mimeType is a string
         const resultMime = imagePart.inlineData.mimeType || 'image/jpeg';
         
-        // Create Blob URL
-        const byteCharacters = atob(resultBase64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        // MOBILE FIX: Use Data URL directly instead of Blob URL
+        // Mobile browsers (Safari iOS) handle Data URLs more reliably for rendered content
+        // within complex CSS (clip-path) contexts than Blob URLs which can be GC'd aggressively.
+        if (resultBase64.length < 100) {
+           throw new Error("Generated image data is corrupted or too small.");
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const resultBlob = new Blob([byteArray], { type: resultMime });
-        return URL.createObjectURL(resultBlob);
+        
+        const dataUrl = `data:${resultMime};base64,${resultBase64}`;
+        console.log(`[GEMINI] Generated valid Data URL (${dataUrl.length} chars)`);
+        
+        return dataUrl;
     }
 
     throw new Error("Aucune image générée dans la réponse.");
