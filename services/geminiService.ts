@@ -12,11 +12,16 @@ const GEN_MODEL = 'gemini-3-pro-image-preview';
 // --- UTILS ---
 
 /**
- * Helper to convert Base64 string back to Blob for efficient URL creation
+ * Helper to convert Base64 string back to Blob for efficient URL creation.
+ * Includes strict sanitization to prevent mobile decoding errors.
  */
 const base64ToBlob = (base64: string, mimeType: string): Blob => {
   try {
-    const byteCharacters = atob(base64);
+    // 1. Sanitize: Remove all non-base64 characters (newlines, spaces)
+    const cleanBase64 = base64.replace(/[\r\n\s]/g, '');
+    
+    // 2. Decode
+    const byteCharacters = atob(cleanBase64);
     const byteNumbers = new Array(byteCharacters.length);
     for (let i = 0; i < byteCharacters.length; i++) {
       byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -25,13 +30,14 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
     return new Blob([byteArray], { type: mimeType });
   } catch (e) {
     console.error("Error converting base64 to blob", e);
+    // Return a valid empty blob to prevent crash, caller should handle size check
     return new Blob([], { type: mimeType });
   }
 };
 
 /**
- * Resizes an image File to a Blob with strict mobile limits
- * Reduced to 512px max to ensure Data URL stays lightweight for instant mobile rendering
+ * Resizes an image File to a Blob with strict mobile limits.
+ * Uses 512px to ensure universal mobile compatibility.
  */
 const resizeImageToBlob = (file: File): Promise<Blob | null> => {
   return new Promise((resolve) => {
@@ -45,7 +51,7 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
     img.onload = () => {
       clearTimeout(timeout);
       try {
-        // MOBILE OPTIMIZATION: 512px is safer for all mobile networks/GPUs
+        // MOBILE OPTIMIZATION: 512px is the safe safe limit for texture memory
         const MAX_SIZE = 512; 
         let w = img.width;
         let h = img.height;
@@ -74,14 +80,15 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
           return;
         }
 
+        // White background to prevent alpha channel issues
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         
-        // Moderate compression (0.6)
+        // standard jpeg quality for mobile
         canvas.toBlob((blob) => {
           resolve(blob);
-        }, 'image/jpeg', 0.6);
+        }, 'image/jpeg', 0.8);
       } catch (e) {
         console.error('[RESIZE] Error:', e);
         resolve(null);
@@ -222,7 +229,6 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
 
   try {
     // 1. Resize image (Critical for speed and MOBILE MEMORY)
-    // Decreased to 512px for maximum stability
     const blob = await resizeImageToBlob(fileInput);
     if (!blob) throw new Error("Erreur lors de la préparation de l'image.");
 
@@ -231,6 +237,7 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
       console.warn("⚠️ [GEMINI] No API Key found. Running in DEMO MODE.");
       await new Promise(r => setTimeout(r, 1500));
       // Just return the input image as BLOB URL in demo mode
+      // This confirms that if the image shows, the blob logic is working
       return URL.createObjectURL(blob);
     }
 
@@ -285,12 +292,14 @@ CRITICAL INSTRUCTIONS:
         }
         
         // 4. CONVERT TO BLOB URL (Crucial for Mobile)
-        // Instead of returning a huge base64 string which gets blocked,
-        // we convert to a Blob and return a short blob: URL.
         const resultBlob = base64ToBlob(resultBase64, resultMime);
-        const resultUrl = URL.createObjectURL(resultBlob);
         
-        console.log(`[GEMINI] Generated valid Blob URL: ${resultUrl}`);
+        if (resultBlob.size < 100) {
+           throw new Error("Erreur de conversion de l'image (Blob invalide).");
+        }
+
+        const resultUrl = URL.createObjectURL(resultBlob);
+        console.log(`[GEMINI] Generated valid Blob URL: ${resultUrl}, size: ${resultBlob.size}`);
         
         return resultUrl;
     }

@@ -27,6 +27,7 @@ const Renovator: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileRef = useRef<File | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
+  const [imageReadyToDisplay, setImageReadyToDisplay] = useState(false); // New state for preload
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,60 +51,86 @@ const Renovator: React.FC = () => {
     }
   }, [imagePreview]);
 
+  // IMAGE PRELOADER LOGIC:
+  // When processedImage changes, we must wait for the browser to decode it
+  // before we try to render it in the complex slider structure.
+  useEffect(() => {
+    if (!processedImage) {
+      setImageReadyToDisplay(false);
+      return;
+    }
+
+    // Reset ready state while loading
+    setImageReadyToDisplay(false);
+
+    const img = new Image();
+    img.onload = () => {
+      // Image is decoded and ready in memory
+      setImageReadyToDisplay(true);
+      if (!isLocked) setIsLocked(true);
+    };
+    img.onerror = () => {
+      console.error("Failed to load processed blob");
+      setImgLoadError(true);
+      setError("Impossible d'afficher l'image générée. Réessayez.");
+    };
+    img.src = processedImage;
+
+    // Optional: Pre-decode if supported
+    if (img.decode) {
+        img.decode().catch((err) => {
+             console.warn("Image decode failed", err);
+             // We still try to let onload handle it, or fail
+        });
+    }
+
+  }, [processedImage]);
+
   // Track container size for comparison slider
-  // This ensures the inner image in the masked div matches exactly the full container
   useEffect(() => {
     if (!imageContainerRef.current) return;
     
     const updateDimensions = () => {
         if (imageContainerRef.current) {
             const { width, height } = imageContainerRef.current.getBoundingClientRect();
-            setContainerDimensions({ width, height });
+            if (width > 0 && height > 0) {
+                 setContainerDimensions({ width, height });
+            }
         }
     };
 
-    // Initial measure
     updateDimensions();
-
     const observer = new ResizeObserver(updateDimensions);
     observer.observe(imageContainerRef.current);
 
     return () => observer.disconnect();
-  }, [processedImage, imagePreview]);
+  }, [imageReadyToDisplay, imagePreview]);
 
-  // Clean up blob URLs for input
+  // Clean up blob URLs
   useEffect(() => {
     return () => {
         if (imagePreview && imagePreview.startsWith('blob:')) {
             URL.revokeObjectURL(imagePreview);
         }
-    };
-  }, [imagePreview]);
-
-  // Clean up blob URLs for output
-  useEffect(() => {
-    return () => {
         if (processedImage && processedImage.startsWith('blob:')) {
             URL.revokeObjectURL(processedImage);
         }
     };
-  }, [processedImage]);
+  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      console.log('[UPLOAD] File selected:', file.name, file.size, 'bytes');
       fileRef.current = file;
-      
       const objectUrl = URL.createObjectURL(file);
       setImagePreview(objectUrl);
       
-      // Cleanup previous processed image if it exists
+      // Reset state
       if (processedImage && processedImage.startsWith('blob:')) {
          URL.revokeObjectURL(processedImage);
       }
       setProcessedImage(null);
-      
+      setImageReadyToDisplay(false);
       setIsLocked(false);
       setError(null);
       setImgLoadError(false);
@@ -112,7 +139,6 @@ const Renovator: React.FC = () => {
   };
 
   const handleSelectExample = async (src: string) => {
-    console.log('[EXAMPLE] Selected:', src);
     setImagePreview(src);
     fileRef.current = null; 
     
@@ -120,7 +146,7 @@ const Renovator: React.FC = () => {
          URL.revokeObjectURL(processedImage);
     }
     setProcessedImage(null);
-
+    setImageReadyToDisplay(false);
     setIsLocked(false);
     setError(null);
     setImgLoadError(false);
@@ -128,38 +154,31 @@ const Renovator: React.FC = () => {
   };
 
   const handleProcess = async (finishType = selectedFinish) => {
-    console.log('[PROCESS] Starting with finish:', finishType);
-    
-    if (!imagePreview) {
-      console.warn('[PROCESS] No image preview');
-      return;
-    }
+    if (!imagePreview) return;
     
     if (!fileRef.current) {
-      // If it's an example (no file), we simulate a process
       if (imagePreview.startsWith('http')) {
          setIsProcessing(true);
          setTimeout(() => {
-            // For examples, we just use the same image to unlock the UI demo flow
-            setProcessedImage(imagePreview); 
-            setIsLocked(true);
+            setProcessedImage(imagePreview); // Examples just reuse the image for demo
             setIsProcessing(false);
          }, 1500);
          return;
       }
-      setError("Veuillez télécharger votre propre photo pour lancer une simulation.");
+      setError("Veuillez télécharger votre propre photo.");
       return;
     }
 
     setIsProcessing(true);
     setError(null);
     setImgLoadError(false);
+    setImageReadyToDisplay(false);
 
     const failsafeTimer = setTimeout(() => {
       if (isProcessing) {
         setIsProcessing(false);
         if (!processedImage) {
-          setError("Le serveur met trop de temps à répondre. Veuillez réessayer.");
+          setError("Le serveur met trop de temps à répondre.");
         }
       }
     }, 60000); 
@@ -171,19 +190,15 @@ const Renovator: React.FC = () => {
       if (finishType === 'teinte-wenge') prompt = "Rénovation parquet teinte wengé sombre, bois foncé.";
 
       const resultUrl = await renovateImage(fileRef.current, prompt);
-      
       clearTimeout(failsafeTimer);
 
       if (resultUrl) {
-        // Cleanup old result if it exists and is a blob
+        // Cleanup old result
         if (processedImage && processedImage.startsWith('blob:')) {
             URL.revokeObjectURL(processedImage);
         }
-        
         setProcessedImage(resultUrl); 
-        if (!processedImage) {
-          setIsLocked(true);
-        }
+        // Note: isLocked is set in the useEffect once image is ready
         setError(null);
       } else {
         setError("La rénovation a échoué. Veuillez réessayer.");
@@ -191,7 +206,6 @@ const Renovator: React.FC = () => {
 
     } catch (err: any) {
       clearTimeout(failsafeTimer);
-      console.error('[PROCESS] Caught error:', err);
       setError(err.message || "Une erreur inattendue est survenue.");
     } finally {
       setIsProcessing(false);
@@ -215,19 +229,16 @@ const Renovator: React.FC = () => {
 
   const handleEmail = () => {
     const email = prompt('Entrez votre email pour recevoir la simulation HD :');
-    if (!email) return;
-    alert(`✓ Visualisation HD envoyée à ${email} !`);
+    if (email) alert(`✓ Visualisation HD envoyée à ${email} !`);
   };
 
   const resetUpload = () => {
-    if (imagePreview && imagePreview.startsWith('blob:')) {
-        URL.revokeObjectURL(imagePreview);
-    }
-    if (processedImage && processedImage.startsWith('blob:')) {
-        URL.revokeObjectURL(processedImage);
-    }
+    if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+    if (processedImage && processedImage.startsWith('blob:')) URL.revokeObjectURL(processedImage);
+    
     setImagePreview(null);
     setProcessedImage(null);
+    setImageReadyToDisplay(false);
     setError(null);
     setIsProcessing(false);
     setIsLocked(false);
@@ -377,14 +388,11 @@ const Renovator: React.FC = () => {
                             </div>
                             <p className="text-xl md:text-2xl font-bold text-brand-dark mt-8 animate-pulse text-center px-4">L'IA rénove votre sol...</p>
                             <p className="text-sm text-gray-400 mt-2">Cela peut prendre jusqu'à 60 secondes.</p>
-                            <div className="mt-4 text-xs text-gray-400 max-w-xs text-center">
-                                Optimisation en cours • Analyse des textures • Génération HD
-                            </div>
                         </div>
                         )}
 
                         {/* LOCKED STATE */}
-                        {isLocked && processedImage && !error && !imgLoadError && (
+                        {isLocked && imageReadyToDisplay && !error && (
                             <div className="absolute inset-0 z-40 backdrop-blur-xl bg-white/40 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
                                 <div className="bg-white p-6 md:p-10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] max-w-md w-full border border-gray-100 transform scale-100 hover:scale-[1.02] transition-transform duration-300">
                                     <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-action-orange to-orange-400 rounded-2xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-orange-200">
@@ -408,7 +416,7 @@ const Renovator: React.FC = () => {
                         )}
 
                         {/* VISUALIZER - REPLACED CLIP-PATH WITH NESTED DIV MASKING */}
-                        {!processedImage ? (
+                        {!imageReadyToDisplay ? (
                         <>
                             <img src={imagePreview} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
                             <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent flex justify-center md:hidden pb-8">
@@ -430,22 +438,25 @@ const Renovator: React.FC = () => {
                             onTouchMove={(e) => {
                                 handleSliderMove(e.touches[0].clientX);
                             }}
+                            style={{
+                                transform: 'translateZ(0)',
+                                backfaceVisibility: 'hidden',
+                                WebkitBackfaceVisibility: 'hidden',
+                                WebkitTransform: 'translateZ(0)'
+                            }}
                         >
                             {/* 1. BOTTOM LAYER: The Renovated Image (Full) */}
                             <img 
                                 src={processedImage} 
                                 alt="Renovated" 
-                                decoding="async"
-                                onError={() => setImgLoadError(true)}
                                 className="absolute inset-0 w-full h-full object-cover"
-                                style={{ transform: 'translate3d(0,0,0)' }}
                             />
                             <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-3 py-1 rounded-full text-xs font-bold shadow-md z-10 pointer-events-none">APRÈS</div>
                             
                             {/* 2. TOP LAYER: The Original Image (Masked by Width) */}
                             <div 
                                 className="absolute top-0 left-0 h-full overflow-hidden border-r-[3px] border-white shadow-[2px_0_15px_rgba(0,0,0,0.2)] z-20"
-                                style={{ width: `${sliderPosition}%`, willChange: 'width', transform: 'translate3d(0,0,0)' }}
+                                style={{ width: `${sliderPosition}%`, willChange: 'width' }}
                             >
                                 {/* IMPORTANT: Inner image must have static full width of parent to avoid squishing */}
                                 <img 
@@ -455,7 +466,6 @@ const Renovator: React.FC = () => {
                                     style={{ 
                                         width: containerDimensions.width || '100%', 
                                         height: '100%',
-                                        transform: 'translate3d(0,0,0)'
                                     }} 
                                 />
                                 <div className="absolute top-6 left-6 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md backdrop-blur-sm pointer-events-none">AVANT</div>
