@@ -1,7 +1,9 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { CalculationResult } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Ensure API key is treated as string for TypeScript, defaulting to empty if undefined (handled at runtime)
+const API_KEY = (process.env.API_KEY as string) || '';
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const CHAT_MODEL = 'gemini-3-pro-preview';
 // Using 2.5 Flash Image for renovation as it's faster and supports edit-like instructions well
@@ -15,6 +17,7 @@ const GEN_MODEL = 'gemini-3-pro-image-preview';
  */
 const resizeImageToBlob = (file: File): Promise<Blob | null> => {
   return new Promise((resolve) => {
+    // Failsafe timeout
     const timeout = setTimeout(() => {
       console.error('[RESIZE] Timeout after 3s');
       resolve(null);
@@ -78,7 +81,13 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
       resolve(null);
     };
     
-    img.src = URL.createObjectURL(file);
+    // Create object URL safely
+    try {
+      img.src = URL.createObjectURL(file);
+    } catch (e) {
+      console.error('[RESIZE] Failed to create ObjectURL:', e);
+      resolve(null);
+    }
   });
 };
 
@@ -87,6 +96,10 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64String = reader.result as string;
+      if (!base64String || !base64String.includes(',')) {
+        reject(new Error("Invalid base64 conversion"));
+        return;
+      }
       // Remove data:image/jpeg;base64, prefix
       const base64Data = base64String.split(',')[1];
       resolve(base64Data);
@@ -153,7 +166,7 @@ const bookAppointmentTool: FunctionDeclaration = {
 };
 
 export const sendChatMessage = async (history: { role: string, parts: { text: string }[] }[], newMessage: string) => {
-  if (!process.env.API_KEY) return "Mode démo: Veuillez configurer votre clé API.";
+  if (!API_KEY) return "Mode démo: Veuillez configurer votre clé API.";
 
   try {
     const chat = ai.chats.create({
@@ -166,21 +179,29 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
 
     let result = await chat.sendMessage({ message: newMessage });
     
+    // Strict guard for result.text access if needed, though SDK usually guarantees text or error
+    if (!result) return "Erreur: Pas de réponse de l'IA.";
+
     const calls = result.functionCalls;
     if (calls && calls.length > 0) {
       const call = calls[0];
+      const nameArg = call.args['name'] as string | undefined;
       const functionResponse = {
         result: "success", 
-        message: `Rendez-vous confirmé pour ${call.args['name']}.`
+        message: `Rendez-vous confirmé pour ${nameArg || 'le client'}.`
       };
+      
+      // Sending function response back
       result = await chat.sendMessage({
         message: [{
           functionResponse: { name: call.name, response: functionResponse }
         }]
       });
     }
-    return result.text;
+    
+    return result.text || "Désolé, je n'ai pas pu générer de réponse.";
   } catch (error) {
+    console.error("Chat Error:", error);
     return "Je rencontre une difficulté technique. Appelez le 06 14 49 49 07.";
   }
 };
@@ -199,7 +220,7 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
     // 2. Convert to Base64 for the SDK
     const base64Data = await blobToBase64(blob);
 
-    // 3. Call Google Gemini Directly (Bypasses Netlify Timeout)
+    // 3. Call Google Gemini Directly
     console.log('[RENOVATE] Calling Gemini API directly...');
     
     const finalPrompt = `${promptText}
@@ -233,11 +254,18 @@ CRITICAL INSTRUCTIONS:
     if (!candidates || candidates.length === 0) throw new Error("L'IA n'a pas renvoyé de résultat.");
     
     const firstCandidate = candidates[0];
-    if (!firstCandidate.content || !firstCandidate.content.parts) {
-        throw new Error("Structure de réponse invalide.");
+    
+    // Guard: Content existence
+    if (!firstCandidate.content) {
+        throw new Error("Structure de réponse invalide (contenu manquant).");
     }
 
+    // Guard: Parts existence
     const parts = firstCandidate.content.parts;
+    if (!parts || parts.length === 0) {
+        throw new Error("Structure de réponse invalide (parties manquantes).");
+    }
+
     const imagePart = parts.find(p => p.inlineData);
 
     if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
@@ -265,7 +293,7 @@ CRITICAL INSTRUCTIONS:
 };
 
 export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4K'): Promise<string | null> => {
-  if (!process.env.API_KEY) return null;
+  if (!API_KEY) return null;
 
   try {
     const response = await ai.models.generateContent({
@@ -274,17 +302,21 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
       config: { imageConfig: { imageSize: size } }
     });
 
-    // Safely access nested optional properties
+    // Safely access nested optional properties with strict null checks
     const candidates = response.candidates;
-    const parts = candidates?.[0]?.content?.parts;
+    if (!candidates || candidates.length === 0) return null;
 
-    if (parts) {
-      for (const part of parts) {
-        if (part.inlineData && part.inlineData.data) {
-          return `data:image/png;base64,${part.inlineData.data}`;
-        }
+    const content = candidates[0].content;
+    if (!content || !content.parts) return null;
+
+    const parts = content.parts;
+
+    for (const part of parts) {
+      if (part.inlineData && part.inlineData.data) {
+        return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
+    
     return null;
   } catch (error) {
     console.error('[INSPIRATION] Error:', error);
