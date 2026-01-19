@@ -290,17 +290,13 @@ CRITICAL INSTRUCTIONS:
            throw new Error("Generated image data is corrupted.");
         }
         
-        // 4. CONVERT TO BLOB URL (Crucial for Mobile)
-        const resultBlob = base64ToBlob(resultBase64, resultMime);
+        // 4. USE DATA URI (Robust for Mobile)
+        // Blob URLs can be revoked or fail in strict mobile webviews.
+        // Data URIs are safer for immediate display.
+        const dataUri = `data:${resultMime};base64,${resultBase64}`;
         
-        if (resultBlob.size < 100) {
-           throw new Error("Erreur de conversion de l'image (Blob invalide).");
-        }
-
-        const resultUrl = URL.createObjectURL(resultBlob);
-        console.log(`[GEMINI] Generated valid Blob URL: ${resultUrl}, size: ${resultBlob.size}`);
-        
-        return resultUrl;
+        console.log(`[GEMINI] Generated Data URI, length: ${dataUri.length}`);
+        return dataUri;
     }
 
     throw new Error("Aucune image générée dans la réponse.");
@@ -329,6 +325,8 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
 
     for (const part of parts) {
       if (part.inlineData && part.inlineData.data) {
+        // For inspiration, we can also use Data URI for consistency, or keep Blob if it works.
+        // Let's stick to blob here as high-res images might be large for Data URI
         const blob = base64ToBlob(part.inlineData.data, 'image/png');
         return URL.createObjectURL(blob);
       }

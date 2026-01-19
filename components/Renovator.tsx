@@ -81,11 +81,12 @@ const Renovator: React.FC = () => {
 
     const img = new Image();
     img.onload = () => {
+      console.log("Image loaded successfully:", processedImage.substring(0, 50) + "...");
       setImageReadyToDisplay(true);
       if (!isLocked) setIsLocked(true);
     };
-    img.onerror = () => {
-      console.error("Failed to load processed blob");
+    img.onerror = (e) => {
+      console.error("Failed to load processed image", e);
       setImgLoadError(true);
       setError("Impossible d'afficher l'image générée. Réessayez.");
     };
@@ -93,12 +94,13 @@ const Renovator: React.FC = () => {
 
   }, [processedImage]);
 
-  // Clean up blob URLs on unmount
+  // Clean up URLs on unmount
   useEffect(() => {
     return () => {
         if (imagePreview && imagePreview.startsWith('blob:')) {
             URL.revokeObjectURL(imagePreview);
         }
+        // processedImage is now likely a data URI, so revocation is optional but good practice if it was a blob
         if (processedImage && processedImage.startsWith('blob:')) {
             URL.revokeObjectURL(processedImage);
         }
@@ -339,7 +341,7 @@ const Renovator: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="relative w-full bg-gray-100 overflow-hidden group flex-1 min-h-[350px] md:min-h-[500px]">
+                    <div className="relative w-full bg-gray-100 group flex-1 min-h-[350px] md:min-h-[500px]">
                         {/* ERROR STATE */}
                         {(error || imgLoadError) && (
                              <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-50 backdrop-blur-md px-4 text-center">
@@ -417,20 +419,20 @@ const Renovator: React.FC = () => {
                         </>
                         ) : (
                           <>
-                            {/* 1. MOBILE VERSION: Simple Static Result Image (Fixes blank screen issues) */}
-                            <div className="md:hidden relative w-full h-full bg-gray-100">
+                            {/* 1. MOBILE VERSION: Simple Static Result Image in Normal Flow */}
+                            <div className="md:hidden w-full bg-gray-100 relative">
                                 <img 
                                     src={processedImage || undefined} 
                                     alt="Rénovation Terminée" 
-                                    className="absolute inset-0 w-full h-full object-cover"
+                                    className="w-full h-auto block"
+                                    style={{ minHeight: '300px' }}
                                 />
                                 <div className="absolute top-4 right-4 bg-white/90 text-brand-dark px-3 py-1 rounded-full text-xs font-bold shadow-md z-10 flex items-center gap-1">
                                     <Sparkles size={12} className="text-action-orange"/> APRÈS
                                 </div>
-                                {/* Optional: Hint that slider is on desktop */}
                             </div>
 
-                            {/* 2. DESKTOP VERSION: Full Interactive Slider */}
+                            {/* 2. DESKTOP VERSION: Full Interactive Slider (Absolute Positioning) */}
                             <div 
                                 className="hidden md:block relative w-full h-full select-none bg-gray-100 cursor-ew-resize overflow-hidden"
                                 ref={imageContainerRef}
