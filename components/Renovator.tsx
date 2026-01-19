@@ -418,7 +418,7 @@ const Renovator: React.FC = () => {
                         {/* VISUALIZER - REPLACED CLIP-PATH WITH NESTED DIV MASKING */}
                         {!imageReadyToDisplay ? (
                         <>
-                            <img src={imagePreview} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
+                            <img src={imagePreview || undefined} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
                             <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent flex justify-center md:hidden pb-8">
                                 <button 
                                     onClick={() => handleProcess()}
@@ -447,7 +447,7 @@ const Renovator: React.FC = () => {
                         >
                             {/* 1. BOTTOM LAYER: The Renovated Image (Full) */}
                             <img 
-                                src={processedImage} 
+                                src={processedImage || undefined} 
                                 alt="Renovated" 
                                 className="absolute inset-0 w-full h-full object-cover"
                             />
@@ -460,7 +460,7 @@ const Renovator: React.FC = () => {
                             >
                                 {/* IMPORTANT: Inner image must have static full width of parent to avoid squishing */}
                                 <img 
-                                    src={imagePreview} 
+                                    src={imagePreview || undefined} 
                                     alt="Original" 
                                     className="absolute top-0 left-0 max-w-none object-cover"
                                     style={{ 
