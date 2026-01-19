@@ -1,56 +1,98 @@
-import { GoogleGenAI, Type, FunctionDeclaration, Tool } from "@google/genai";
+import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { CalculationResult } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
-const TEXT_MODEL = 'gemini-3-flash-preview';
 const CHAT_MODEL = 'gemini-3-pro-preview';
-const EDIT_MODEL = 'gemini-2.5-flash-image';
+// Using 2.5 Flash Image for renovation as it's faster and supports edit-like instructions well
+const RENOVATE_MODEL = 'gemini-2.5-flash-image';
 const GEN_MODEL = 'gemini-3-pro-image-preview';
 
 // --- UTILS ---
 
 /**
- * Resizes and compresses an image client-side to avoid sending massive payloads.
- * Target: Max 1024px width/height, JPEG 0.75 quality.
+ * Resizes an image File to a Blob with max dimension 800px for mobile compatibility
  */
-const resizeImage = (dataUrl: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
+const resizeImageToBlob = (file: File): Promise<Blob | null> => {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      console.error('[RESIZE] Timeout after 3s');
+      resolve(null);
+    }, 3000);
+
     const img = new Image();
+    
     img.onload = () => {
-      // Calculate new dimensions (Max 1024px)
-      const MAX_SIZE = 1024;
-      let width = img.width;
-      let height = img.height;
+      clearTimeout(timeout);
+      try {
+        const MAX_SIZE = 800; // Reduced for mobile reliability
+        let w = img.width;
+        let h = img.height;
 
-      if (width > height) {
-        if (width > MAX_SIZE) {
-          height = Math.round((height * MAX_SIZE) / width);
-          width = MAX_SIZE;
+        console.log(`[RESIZE] Original: ${w}x${h}`);
+
+        if (w > MAX_SIZE || h > MAX_SIZE) {
+          if (w > h) {
+            h = Math.round((h * MAX_SIZE) / w);
+            w = MAX_SIZE;
+          } else {
+            w = Math.round((w * MAX_SIZE) / h);
+            h = MAX_SIZE;
+          }
         }
-      } else {
-        if (height > MAX_SIZE) {
-          width = Math.round((width * MAX_SIZE) / height);
-          height = MAX_SIZE;
+
+        console.log(`[RESIZE] Resized to: ${w}x${h}`);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          console.error('[RESIZE] No canvas context');
+          resolve(null);
+          return;
         }
-      }
 
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        resolve(dataUrl); // Fallback to original if canvas fails
-        return;
+        ctx.drawImage(img, 0, 0, w, h);
+        
+        // Convert to JPEG with moderate compression
+        canvas.toBlob((blob) => {
+          if (blob) {
+            console.log(`[RESIZE] Final blob: ${blob.size} bytes (${blob.type})`);
+            resolve(blob);
+          } else {
+            console.error('[RESIZE] toBlob returned null');
+            resolve(null);
+          }
+        }, 'image/jpeg', 0.8);
+      } catch (e) {
+        console.error('[RESIZE] Error:', e);
+        resolve(null);
       }
-
-      ctx.drawImage(img, 0, 0, width, height);
-      // Return as JPEG with 0.75 quality to save bandwidth/memory
-      resolve(canvas.toDataURL('image/jpeg', 0.75));
     };
-    img.onerror = () => resolve(dataUrl); // Fallback on error
-    img.src = dataUrl;
+    
+    img.onerror = (e) => {
+      clearTimeout(timeout);
+      console.error('[RESIZE] Image load error:', e);
+      resolve(null);
+    };
+    
+    img.src = URL.createObjectURL(file);
+  });
+};
+
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      // Remove data:image/jpeg;base64, prefix
+      const base64Data = base64String.split(',')[1];
+      resolve(base64Data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
 };
 
@@ -58,32 +100,23 @@ const resizeImage = (dataUrl: string): Promise<string> => {
 export const calculateEstimate = async (
   type: string,
   surface: number,
-  condition: string, // Expecting 'Bon', 'Moyen', or 'Mauvais'
+  condition: string,
   finish: string
 ): Promise<CalculationResult> => {
   
-  // --- STRICT PRICING RULES ---
-  // Rule: 35 EUR/m2 for Bon/Moyen, 40 EUR/m2 for Mauvais (Abimé)
   let pricePerSqm = 35;
   if (condition === 'Mauvais') {
     pricePerSqm = 40;
   }
 
   const baseTotal = surface * pricePerSqm;
-  
-  // We create a tight range: Calculated Price is the minimum.
-  // We add ~10% for the max price to account for potential specific difficulties.
   const minPrice = baseTotal;
   const maxPrice = Math.round(baseTotal * 1.1);
 
-  // Determine duration based on surface
   let duration = "2 jours";
   if (surface > 30) duration = "3 jours";
   if (surface > 55) duration = "4-5 jours";
   if (surface > 100) duration = "7+ jours";
-
-  // AI is only used here to generate a nice recommendation text, 
-  // but we enforce the price mathematically.
   
   const result: CalculationResult = {
     minPrice: minPrice,
@@ -93,10 +126,9 @@ export const calculateEstimate = async (
     recommendation: condition === 'Mauvais' 
       ? "Vu l'état d'usure, un ponçage à blanc en 3 passes est nécessaire pour récupérer le bois brut." 
       : "Un ponçage de rafraîchissement suffira pour sublimer votre parquet.",
-    confidence: 98 // High confidence because it's based on fixed rules
+    confidence: 98
   };
 
-  // Simulate network delay for UX (loader)
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve(result);
@@ -104,135 +136,125 @@ export const calculateEstimate = async (
   });
 };
 
-// --- CHATBOT & BOOKING LOGIC ---
-
-// Define the booking tool
+// --- CHATBOT LOGIC ---
 const bookAppointmentTool: FunctionDeclaration = {
   name: "bookAppointment",
-  description: "Book a consultation appointment for flooring renovation. Use this when the user agrees to schedule a visit or call.",
+  description: "Book a consultation appointment.",
   parameters: {
     type: Type.OBJECT,
     properties: {
-      name: { type: Type.STRING, description: "Name of the client" },
-      phone: { type: Type.STRING, description: "Phone number of the client" },
-      date: { type: Type.STRING, description: "Preferred date and time for the appointment" },
-      intent: { type: Type.STRING, description: "Type of appointment: 'visit' (on-site) or 'call' (phone)" }
+      name: { type: Type.STRING },
+      phone: { type: Type.STRING },
+      date: { type: Type.STRING },
+      intent: { type: Type.STRING }
     },
     required: ["name", "phone", "date"]
   }
 };
 
 export const sendChatMessage = async (history: { role: string, parts: { text: string }[] }[], newMessage: string) => {
-  if (!process.env.API_KEY) return "Mode démo: Veuillez configurer votre clé API pour discuter avec l'expert.";
+  if (!process.env.API_KEY) return "Mode démo: Veuillez configurer votre clé API.";
 
   try {
     const chat = ai.chats.create({
       model: CHAT_MODEL,
       history: history,
       config: {
-        systemInstruction: `Tu es 'L'Expert', l'assistant virtuel de 'LE PARQUET PARISIEN'. 
-        Ton but est d'aider les clients à estimer leurs travaux et surtout de RÉSERVER un rendez-vous.
-        
-        RÈGLES DE PRIX (À CONNAÎTRE PAR CŒUR) :
-        - Rénovation standard (Bon/Moyen état) : environ 35€/m².
-        - Rénovation lourde (Très abîmé/Mauvais état) : environ 40€/m².
-        
-        Règles de conversation :
-        1. Sois professionnel, chaleureux et concis.
-        2. Si le client demande un prix, utilise les règles ci-dessus pour donner une estimation.
-        3. Propose rapidement une visite technique gratuite.
-        4. Pour réserver, collecte : Nom, Téléphone, et Date souhaitée.
-        5. Une fois ces 3 infos obtenues, appelle l'outil 'bookAppointment'.`,
         tools: [{ functionDeclarations: [bookAppointmentTool] }]
       }
     });
 
     let result = await chat.sendMessage({ message: newMessage });
     
-    // Handle Function Calling Loop
     const calls = result.functionCalls;
     if (calls && calls.length > 0) {
       const call = calls[0];
-      
-      console.log("Executing Tool:", call.name, call.args);
-      
       const functionResponse = {
         result: "success", 
-        message: `Rendez-vous confirmé pour ${call.args['name']} le ${call.args['date']}. Un SMS de confirmation a été envoyé au ${call.args['phone']}.`
+        message: `Rendez-vous confirmé pour ${call.args['name']}.`
       };
-
-      // Send result back to model to get final natural language confirmation
       result = await chat.sendMessage({
-        content: [{
-          role: 'function',
-          parts: [{
-            functionResponse: {
-              name: call.name,
-              response: functionResponse
-            }
-          }]
+        message: [{
+          functionResponse: { name: call.name, response: functionResponse }
         }]
       });
     }
-
     return result.text;
   } catch (error) {
-    console.error("Gemini Chat Error:", error);
-    return "Je rencontre une difficulté technique pour accéder à mon agenda. Pouvez-vous appeler directement le 06 14 49 49 07 ?";
+    return "Je rencontre une difficulté technique. Appelez le 06 14 49 49 07.";
   }
 };
 
-// --- IMAGE FEATURES ---
+// --- IMAGE RENOVATION (CLIENT SIDE) ---
+export const renovateImage = async (fileInput: File, promptText: string): Promise<string | null> => {
+  const startTime = Date.now();
+  console.log('[RENOVATE] Starting Client-Side renovation:', fileInput.name);
 
-export const renovateImage = async (base64Image: string, promptText: string): Promise<string | null> => {
   try {
-    // 1. OPTIMIZE: Resize image client-side before processing
-    // This prevents "Payload Too Large" and reduces Mobile RAM usage significantly.
-    const resizedImage = await resizeImage(base64Image);
+    // 1. Resize image (Critical for speed)
+    console.log('[RENOVATE] Resizing image...');
+    const blob = await resizeImageToBlob(fileInput);
+    if (!blob) throw new Error("Erreur lors de la préparation de l'image.");
 
-    // 2. Parse Input: Handle both raw base64 and Data URL (data:image/jpeg;base64,...)
-    let mimeType = 'image/jpeg';
-    let cleanBase64 = resizedImage;
+    // 2. Convert to Base64 for the SDK
+    const base64Data = await blobToBase64(blob);
 
-    if (resizedImage.includes(';base64,')) {
-        const parts = resizedImage.split(';base64,');
-        // parts[0] is "data:image/jpeg"
-        mimeType = parts[0].replace('data:', '');
-        cleanBase64 = parts[1];
-    }
+    // 3. Call Google Gemini Directly (Bypasses Netlify Timeout)
+    console.log('[RENOVATE] Calling Gemini API directly...');
+    
+    const finalPrompt = `${promptText}
 
-    // 3. Call Netlify Function
-    const response = await fetch('/.netlify/functions/gemini-image', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            prompt: promptText || "Rénove ce parquet pour qu'il soit neuf et brillant. Style haussmannien moderne.",
-            imageBase64: cleanBase64,
-            mimeType: mimeType
-        })
+CRITICAL INSTRUCTIONS:
+- Return a modified image of the floor provided.
+- Apply high-quality renovation: remove scratches, fix wear, make it look new.
+- Maintain the perspective and layout of the room exactly.
+- Ensure the result is photorealistic.`;
+
+    const response = await ai.models.generateContent({
+      model: RENOVATE_MODEL,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: finalPrompt },
+            { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
+          ]
+        }
+      ],
+      config: {
+        responseModalities: ["IMAGE"], // Force image output
+      }
     });
 
-    if (!response.ok) {
-        throw new Error(`Netlify Function returned ${response.status}`);
+    console.log(`[RENOVATE] API responded in ${Date.now() - startTime}ms`);
+
+    // 4. Extract Image
+    const candidates = response.candidates;
+    if (!candidates || candidates.length === 0) throw new Error("L'IA n'a pas renvoyé de résultat.");
+    
+    const parts = candidates[0].content.parts;
+    const imagePart = parts.find(p => p.inlineData);
+
+    if (imagePart && imagePart.inlineData) {
+        const resultBase64 = imagePart.inlineData.data;
+        const resultMime = imagePart.inlineData.mimeType || 'image/jpeg';
+        // Create Blob URL
+        const byteCharacters = atob(resultBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const resultBlob = new Blob([byteArray], { type: resultMime });
+        return URL.createObjectURL(resultBlob);
     }
 
-    const data = await response.json();
-    
-    // 4. Reconstruct Data URL from response
-    if (data.imageBase64) {
-      // Use mimeType from response or fallback to input type
-      const outMime = data.mimeType || mimeType;
-      return `data:${outMime};base64,${data.imageBase64}`;
-    }
-    
-    return null;
+    throw new Error("Aucune image générée dans la réponse.");
 
-  } catch (error) {
-    console.error("Renovation Error:", error);
-    // Return null so the UI knows it failed, instead of showing a fake image
-    return null; 
+  } catch (error: any) {
+    console.error('[RENOVATE] ERROR:', error);
+    if (error.message?.includes('400')) return null; // Bad Request usually means safety filter or bad image
+    throw new Error(error.message || "Une erreur est survenue pendant la génération.");
   }
 };
 
@@ -242,14 +264,8 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
   try {
     const response = await ai.models.generateContent({
       model: GEN_MODEL,
-      contents: {
-        parts: [{ text: prompt }]
-      },
-      config: {
-        imageConfig: {
-          imageSize: size
-        }
-      }
+      contents: { parts: [{ text: prompt }] },
+      config: { imageConfig: { imageSize: size } }
     });
 
     for (const part of response.candidates[0].content.parts) {
@@ -259,7 +275,7 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
     }
     return null;
   } catch (error) {
-    console.error("Generation Error:", error);
+    console.error('[INSPIRATION] Error:', error);
     return null;
   }
 };

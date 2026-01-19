@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Sparkles, MoveHorizontal, Loader2, Lock, ArrowRight, Image as ImageIcon, CheckCircle2, Download, Mail, Scan, AlertCircle } from 'lucide-react';
+import { Upload, Sparkles, MoveHorizontal, Lock, ArrowRight, Image as ImageIcon, CheckCircle2, Download, Mail, Scan, AlertCircle } from 'lucide-react';
 import { renovateImage } from '../services/geminiService';
 
 const EXAMPLES = [
@@ -23,26 +23,9 @@ const EXAMPLES = [
   }
 ];
 
-// UTILITY: Convert Base64 DataURL to Blob for optimized rendering
-const dataURItoBlob = (dataURI: string): Blob => {
-  try {
-    const splitData = dataURI.split(',');
-    const byteString = atob(splitData[1]);
-    const mimeString = splitData[0].split(':')[1].split(';')[0];
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], { type: mimeString });
-  } catch (e) {
-    console.error("Error converting data URI to Blob", e);
-    throw e;
-  }
-};
-
 const Renovator: React.FC = () => {
-  const [image, setImage] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileRef = useRef<File | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -52,30 +35,32 @@ const Renovator: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visualizerRef = useRef<HTMLDivElement>(null);
 
-  // MEMORY MANAGEMENT: Revoke Blob URL when component unmounts or image changes
+  // Auto-scroll
   useEffect(() => {
-    return () => {
-      if (processedImage && processedImage.startsWith('blob:')) {
-        URL.revokeObjectURL(processedImage);
-      }
-    };
-  }, [processedImage]);
-
-  // Auto-scroll to visualizer when image is loaded
-  useEffect(() => {
-    if (image && visualizerRef.current) {
+    if (imagePreview && visualizerRef.current) {
         setTimeout(() => {
             visualizerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
     }
-  }, [image]);
+  }, [imagePreview]);
+
+  // Clean up blob URLs
+  useEffect(() => {
+    return () => {
+        if (processedImage && processedImage.startsWith('blob:')) {
+            URL.revokeObjectURL(processedImage);
+        }
+    };
+  }, [processedImage]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      console.log('[UPLOAD] File selected:', file.name, file.size, 'bytes');
+      fileRef.current = file;
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result as string);
+        setImagePreview(reader.result as string);
         setProcessedImage(null);
         setIsLocked(false);
         setError(null);
@@ -85,8 +70,10 @@ const Renovator: React.FC = () => {
     }
   };
 
-  const handleSelectExample = (src: string) => {
-    setImage(src);
+  const handleSelectExample = async (src: string) => {
+    console.log('[EXAMPLE] Selected:', src);
+    setImagePreview(src);
+    fileRef.current = null; 
     setProcessedImage(null);
     setIsLocked(false);
     setError(null);
@@ -94,53 +81,89 @@ const Renovator: React.FC = () => {
   };
 
   const handleProcess = async (finishType = selectedFinish) => {
-    if (!image) return;
-    setIsProcessing(true);
-    setError(null);
+    console.log('[PROCESS] Starting with finish:', finishType);
     
-    let prompt = "Rénove ce parquet pour qu'il soit neuf et brillant. Style haussmannien moderne.";
+    if (!imagePreview) {
+      console.warn('[PROCESS] No image preview');
+      return;
+    }
     
-    switch (finishType) {
-        case 'vitrification-mat':
-            prompt = "Rénovation parquet finition vitrification mat naturel, aspect bois brut, élégant, haute qualité.";
-            break;
-        case 'vitrification-brillant':
-            prompt = "Rénovation parquet finition vitrification brillante, haute brillance, reflectif, luxueux, miroir.";
-            break;
-        case 'huilage':
-            prompt = "Rénovation parquet finition huilé naturel, texture bois apparente, chaleureux, authentique.";
-            break;
-        case 'teinte-wenge':
-            prompt = "Rénovation parquet teinte wengé sombre, bois foncé, élégant, moderne, contrasté.";
-            break;
+    if (!fileRef.current) {
+      setError("Veuillez télécharger votre propre photo pour lancer une simulation.");
+      console.warn('[PROCESS] No file uploaded, cannot process example');
+      return;
     }
 
-    try {
-        const resultDataUrl = await renovateImage(image, prompt);
-        
-        if (resultDataUrl) {
-            // CONVERT TO BLOB URL to fix mobile rendering issues
-            const blob = dataURItoBlob(resultDataUrl);
-            const objectUrl = URL.createObjectURL(blob);
-            setProcessedImage(objectUrl);
-            
-            if (!processedImage) {
-                setIsLocked(true);
-            }
-        } else {
-            setError("La rénovation a échoué. Veuillez réessayer.");
-        }
-    } catch (err) {
-        console.error("Processing failed", err);
-        setError("Erreur technique lors de la génération. Réessayez.");
-    } finally {
+    setIsProcessing(true);
+    setError(null);
+
+    // CRITICAL: Failsafe timer to FORCE spinner stop
+    // Increased to 90s to allow for network latency and model generation time
+    const failsafeTimer = setTimeout(() => {
+      console.error('[PROCESS] FAILSAFE TRIGGERED - forcing spinner stop');
+      if (isProcessing) {
         setIsProcessing(false);
+        if (!processedImage) {
+          setError("Le serveur met trop de temps à répondre. Veuillez réessayer.");
+        }
+      }
+    }, 90000); 
+    
+    try {
+      // Build prompt based on finish type
+      let prompt = "Rénove ce parquet pour qu'il soit neuf et brillant. Style haussmannien moderne.";
+      switch (finishType) {
+        case 'vitrification-mat':
+          prompt = "Rénovation parquet finition vitrification mat naturel, aspect bois brut, élégant, haute qualité, photorealistic floor renovation.";
+          break;
+        case 'vitrification-brillant':
+          prompt = "Rénovation parquet finition vitrification brillante, haute brillance, reflectif, luxueux, miroir, photorealistic shiny floor.";
+          break;
+        case 'huilage':
+          prompt = "Rénovation parquet finition huilé naturel, texture bois apparente, chaleureux, authentique, photorealistic oiled wood floor.";
+          break;
+        case 'teinte-wenge':
+          prompt = "Rénovation parquet teinte wengé sombre, bois foncé, élégant, moderne, contrasté, photorealistic dark stained floor.";
+          break;
+      }
+
+      console.log('[PROCESS] Calling renovateImage with prompt:', prompt);
+
+      // Call the service (this now throws on error)
+      const result = await renovateImage(fileRef.current, prompt);
+      
+      clearTimeout(failsafeTimer);
+
+      if (result) {
+        console.log('[PROCESS] SUCCESS - got result:', result);
+        setProcessedImage(result);
+        if (!processedImage) {
+          setIsLocked(true); // Lock only on first successful generation
+        }
+        setError(null);
+      } else {
+        console.error('[PROCESS] renovateImage returned null');
+        setError("La rénovation a échoué. Veuillez réessayer.");
+      }
+
+    } catch (err: any) {
+      clearTimeout(failsafeTimer);
+      console.error('[PROCESS] Caught error:', err);
+      
+      // Display the error message from the service
+      setError(err.message || "Une erreur inattendue est survenue.");
+      
+    } finally {
+      // CRITICAL: Always ensure spinner stops
+      console.log('[PROCESS] Finally block - stopping spinner');
+      setIsProcessing(false);
     }
   };
 
   const handleFinishChange = async (finishId: string) => {
-      setSelectedFinish(finishId);
-      await handleProcess(finishId);
+    console.log('[FINISH] Changing to:', finishId);
+    setSelectedFinish(finishId);
+    await handleProcess(finishId);
   };
 
   const handleDownload = () => {
@@ -156,17 +179,17 @@ const Renovator: React.FC = () => {
   const handleEmail = () => {
     const email = prompt('Entrez votre email pour recevoir la simulation HD :');
     if (!email) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        alert('Email invalide. Veuillez réessayer.');
-        return;
-    }
     alert(`✓ Visualisation HD envoyée à ${email} !`);
   };
 
   const resetUpload = () => {
-    setImage(null);
+    console.log('[RESET] Resetting upload');
+    setImagePreview(null);
     setProcessedImage(null);
     setError(null);
+    setIsProcessing(false);
+    setIsLocked(false);
+    fileRef.current = null;
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -186,7 +209,7 @@ const Renovator: React.FC = () => {
 
         <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden" id="visualizer-stage" ref={visualizerRef}>
           
-          {!image ? (
+          {!imagePreview ? (
             <div className="flex flex-col md:flex-row">
                 {/* Upload Section */}
                 <div className="md:w-1/2 p-6 md:p-12 flex flex-col justify-center border-b md:border-b-0 md:border-r border-gray-100">
@@ -245,7 +268,7 @@ const Renovator: React.FC = () => {
             <div className="flex flex-col h-full">
               {/* Toolbar */}
               <div className="bg-white border-b border-gray-100 p-4 flex justify-between items-center shrink-0">
-                 <button onClick={resetUpload} className="text-sm font-bold text-gray-500 hover:text-brand-dark flex items-center gap-2">
+                 <button onClick={resetUpload} disabled={isProcessing} className="text-sm font-bold text-gray-500 hover:text-brand-dark flex items-center gap-2 disabled:opacity-50">
                     ← Retour
                  </button>
                  <div className="flex gap-2">
@@ -255,25 +278,13 @@ const Renovator: React.FC = () => {
               
               <div className="flex flex-col md:flex-row h-full items-stretch">
                   <div className="w-full md:w-3/4 flex flex-col">
-                    {/* Feature 2: AI Analysis Card */}
-                    {processedImage && !isLocked && (
+                    {processedImage && !isLocked && !error && (
                         <div className="bg-orange-50/50 border-b border-orange-100 p-4 flex flex-wrap gap-4 items-center justify-between shrink-0 animate-fade-in">
                             <div className="flex items-center gap-2 text-action-orange font-bold text-sm">
                                 <Scan size={18} /> Analyse IA :
                             </div>
                             <div className="flex gap-4 text-xs md:text-sm text-gray-600">
-                                <div className="flex flex-col">
-                                    <span className="text-gray-400 text-[10px] uppercase">Essence</span>
-                                    <span className="font-bold">Chêne Massif</span>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-gray-400 text-[10px] uppercase">État</span>
-                                    <span className="font-bold">Usure Profonde</span>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-gray-400 text-[10px] uppercase">Recommandation</span>
-                                    <span className="font-bold text-green-600">Ponçage + Vitrification</span>
-                                </div>
+                                <span className="font-bold text-green-600">Ponçage + Vitrification</span>
                             </div>
                             <div className="hidden md:flex items-center gap-1 text-[10px] text-gray-400 ml-auto">
                                 <CheckCircle2 size={12} className="text-green-500"/> Précision 92%
@@ -286,14 +297,22 @@ const Renovator: React.FC = () => {
                         {error && (
                              <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-50 backdrop-blur-md px-4 text-center">
                                 <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-                                <h3 className="text-xl font-bold text-brand-dark mb-2">Erreur de génération</h3>
-                                <p className="text-gray-500 mb-6">{error}</p>
-                                <button 
-                                    onClick={() => handleProcess()}
-                                    className="px-6 py-2 bg-brand-dark text-white rounded-lg font-bold"
-                                >
-                                    Réessayer
-                                </button>
+                                <h3 className="text-xl font-bold text-brand-dark mb-2">Une erreur est survenue</h3>
+                                <p className="text-gray-500 mb-6 text-sm max-w-sm">{error}</p>
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => handleProcess()}
+                                        className="px-6 py-2 bg-brand-dark text-white rounded-lg font-bold shadow-lg hover:bg-black transition-colors"
+                                    >
+                                        Réessayer
+                                    </button>
+                                    <button 
+                                        onClick={resetUpload}
+                                        className="px-6 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                                    >
+                                        Changer de photo
+                                    </button>
+                                </div>
                              </div>
                         )}
 
@@ -306,18 +325,15 @@ const Renovator: React.FC = () => {
                                 <Sparkles className="absolute inset-0 m-auto text-action-orange animate-pulse" />
                             </div>
                             <p className="text-xl md:text-2xl font-bold text-brand-dark mt-8 animate-pulse text-center px-4">L'IA rénove votre sol...</p>
-                            <div className="hidden md:flex gap-2 mt-4 text-sm text-gray-500 font-medium">
-                                <span className="animate-bounce delay-75">Analyse des fibres</span>
-                                <span className="animate-bounce delay-150">•</span>
-                                <span className="animate-bounce delay-200">Calcul de la lumière</span>
-                                <span className="animate-bounce delay-300">•</span>
-                                <span className="animate-bounce delay-500">Application du vernis</span>
+                            <p className="text-sm text-gray-400 mt-2">Cela peut prendre jusqu'à 60 secondes.</p>
+                            <div className="mt-4 text-xs text-gray-400 max-w-xs text-center">
+                                Optimisation en cours • Analyse des textures • Génération HD
                             </div>
                         </div>
                         )}
 
                         {/* LOCKED STATE */}
-                        {isLocked && processedImage && (
+                        {isLocked && processedImage && !error && (
                             <div className="absolute inset-0 z-40 backdrop-blur-xl bg-white/40 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
                                 <div className="bg-white p-6 md:p-10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] max-w-md w-full border border-gray-100 transform scale-100 hover:scale-[1.02] transition-transform duration-300">
                                     <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-action-orange to-orange-400 rounded-2xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-orange-200">
@@ -336,9 +352,6 @@ const Renovator: React.FC = () => {
                                             DÉBLOQUER MON ESTIMATION
                                         </button>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 mt-4 flex items-center justify-center gap-1">
-                                        <Lock size={10} /> Vos données sont protégées.
-                                    </p>
                                 </div>
                             </div>
                         )}
@@ -346,20 +359,20 @@ const Renovator: React.FC = () => {
                         {/* VISUALIZER */}
                         {!processedImage ? (
                         <>
-                            <img src={image} alt="Original" className="absolute inset-0 w-full h-full object-cover block" />
-                            {/* MOBILE OVERLAY CTA FOR PROCESSING */}
+                            <img src={imagePreview} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
                             <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent flex justify-center md:hidden pb-8">
                                 <button 
                                     onClick={() => handleProcess()}
-                                    disabled={isProcessing}
-                                    className="w-full bg-action-orange text-white py-3.5 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 animate-bounce-subtle"
+                                    disabled={isProcessing || !fileRef.current}
+                                    className="w-full bg-action-orange text-white py-3.5 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 animate-bounce-subtle disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <Sparkles size={18} /> LANCER L'IA
+                                    <Sparkles size={18} /> 
+                                    {fileRef.current ? 'LANCER L\'IA' : 'PHOTO REQUISE'}
                                 </button>
                             </div>
                         </>
                         ) : (
-                        <div className="relative w-full h-full select-none cursor-ew-resize touch-none"
+                        <div className="relative w-full h-full select-none cursor-ew-resize"
                             onMouseMove={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
                                 const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
@@ -371,35 +384,25 @@ const Renovator: React.FC = () => {
                                 setSliderPosition((x / rect.width) * 100);
                             }}
                         >
-                            {/* AFTER IMAGE (Bottom Layer) */}
                             <div className="absolute inset-0 w-full h-full">
-                                <img 
-                                    src={processedImage} 
-                                    alt="After" 
-                                    className="w-full h-full object-cover filter brightness-110 saturate-125 contrast-110 block" 
-                                    onError={() => setError("Impossible d'afficher l'image.")}
-                                />
+                            <img src={processedImage} alt="After" className="w-full h-full object-cover filter brightness-110 saturate-125 contrast-110" />
                             </div>
-
-                            {/* BEFORE IMAGE (Top Layer with Clip) */}
                             <div 
-                                className="absolute inset-0 w-full h-full overflow-hidden"
-                                style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+                            className="absolute inset-0 w-full h-full overflow-hidden"
+                            style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
                             >
-                                <img src={image} alt="Before" className="w-full h-full object-cover grayscale brightness-90 block" />
-                                <div className="absolute top-6 left-6 bg-black/50 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg border border-white/10 z-10">AVANT</div>
+                            <img src={imagePreview} alt="Before" className="w-full h-full object-cover grayscale brightness-90" />
+                            <div className="absolute top-6 left-6 bg-black/50 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg border border-white/10">AVANT</div>
                             </div>
+                            <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg">APRÈS</div>
                             
-                            <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg z-10">APRÈS</div>
-                            
-                            {/* SLIDER HANDLE */}
                             <div 
-                                className="absolute top-0 bottom-0 w-1 bg-white z-20 shadow-[0_0_20px_rgba(0,0,0,0.3)] pointer-events-none"
-                                style={{ left: `${sliderPosition}%` }}
+                            className="absolute top-0 bottom-0 w-1 bg-white z-20 shadow-[0_0_20px_rgba(0,0,0,0.3)] pointer-events-none"
+                            style={{ left: `${sliderPosition}%` }}
                             >
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xl border-4 border-white/50">
-                                    <MoveHorizontal size={20} className="text-brand-dark" />
-                                </div>
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xl border-4 border-white/50">
+                                <MoveHorizontal size={20} className="text-brand-dark" />
+                            </div>
                             </div>
                         </div>
                         )}
@@ -408,7 +411,7 @@ const Renovator: React.FC = () => {
 
                   {/* Sidebar / Controls */}
                   <div className="w-full md:w-1/4 bg-white border-l border-gray-100 flex flex-col z-10">
-                      {!isLocked && processedImage ? (
+                      {!isLocked && processedImage && !error ? (
                           <div className="p-4 md:p-6 space-y-6 h-full flex flex-col">
                              <div>
                                 <h3 className="font-bold text-sm mb-3 text-brand-dark">Essayez différentes finitions :</h3>
@@ -423,7 +426,7 @@ const Renovator: React.FC = () => {
                                         key={finish.id}
                                         onClick={() => handleFinishChange(finish.id)}
                                         disabled={isProcessing}
-                                        className={`w-full p-3 border rounded-xl text-left transition-all flex items-start gap-3 ${
+                                        className={`w-full p-3 border rounded-xl text-left transition-all flex items-start gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${
                                           selectedFinish === finish.id
                                             ? 'border-action-orange bg-orange-50 ring-1 ring-action-orange'
                                             : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
@@ -461,9 +464,9 @@ const Renovator: React.FC = () => {
                                 <>
                                     <Sparkles size={32} className="text-gray-200 mb-4" />
                                     <p className="text-sm text-gray-400 font-medium">
-                                        Importez une photo pour débloquer les outils de personnalisation (teintes, finitions, etc).
+                                        Importez une photo pour débloquer les outils de personnalisation.
                                     </p>
-                                    {!image && (
+                                    {!imagePreview && (
                                         <button 
                                             onClick={() => fileInputRef.current?.click()}
                                             className="mt-6 text-action-orange font-bold text-sm underline"
@@ -471,13 +474,13 @@ const Renovator: React.FC = () => {
                                             Importer maintenant
                                         </button>
                                     )}
-                                    {image && !processedImage && (
+                                    {imagePreview && !processedImage && !error && (
                                          <button 
                                             onClick={() => handleProcess()}
-                                            disabled={isProcessing}
-                                            className="mt-6 w-full px-6 py-3 bg-action-orange text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all"
+                                            disabled={isProcessing || !fileRef.current}
+                                            className="mt-6 w-full px-6 py-3 bg-action-orange text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                          >
-                                            Lancer l'IA
+                                            {fileRef.current ? 'Lancer l\'IA' : 'Photo requise'}
                                          </button>
                                     )}
                                 </>
