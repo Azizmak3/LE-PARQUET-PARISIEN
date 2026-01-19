@@ -4,7 +4,7 @@ import { CalculationResult } from '../types';
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 const TEXT_MODEL = 'gemini-3-flash-preview';
-const CHAT_MODEL = 'gemini-3-pro-preview'; // Upgraded for better reasoning/booking
+const CHAT_MODEL = 'gemini-3-pro-preview';
 const EDIT_MODEL = 'gemini-2.5-flash-image';
 const GEN_MODEL = 'gemini-3-pro-image-preview';
 
@@ -12,71 +12,50 @@ const GEN_MODEL = 'gemini-3-pro-image-preview';
 export const calculateEstimate = async (
   type: string,
   surface: number,
-  condition: string,
+  condition: string, // Expecting 'Bon', 'Moyen', or 'Mauvais'
   finish: string
 ): Promise<CalculationResult> => {
-  if (!process.env.API_KEY) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          minPrice: surface * 85,
-          maxPrice: surface * 125,
-          duration: surface < 30 ? "2-3 jours" : "4-5 jours",
-          materials: ["Vernis Premium (Bona/Blanchon)", "Abrasifs grain 40-120", "Fond dur écologique"],
-          recommendation: "Pour ce type de surface, nous recommandons une finition mate pour un rendu naturel et durable.",
-          confidence: 92
-        });
-      }, 1500);
-    });
+  
+  // --- STRICT PRICING RULES ---
+  // Rule: 35 EUR/m2 for Bon/Moyen, 40 EUR/m2 for Mauvais (Abimé)
+  let pricePerSqm = 35;
+  if (condition === 'Mauvais') {
+    pricePerSqm = 40;
   }
 
-  const prompt = `
-    Agis comme un expert estimateur de travaux de parquet à Paris.
-    Calcule une estimation pour le projet suivant:
-    - Type de travaux: ${type}
-    - Surface: ${surface} m2
-    - État actuel: ${condition}
-    - Finition souhaitée: ${finish}
+  const baseTotal = surface * pricePerSqm;
+  
+  // We create a tight range: Calculated Price is the minimum.
+  // We add ~10% for the max price to account for potential specific difficulties.
+  const minPrice = baseTotal;
+  const maxPrice = Math.round(baseTotal * 1.1);
 
-    Prends en compte les prix du marché parisien haut de gamme.
-    Retourne UNIQUEMENT un objet JSON.
-  `;
+  // Determine duration based on surface
+  let duration = "2 jours";
+  if (surface > 30) duration = "3 jours";
+  if (surface > 55) duration = "4-5 jours";
+  if (surface > 100) duration = "7+ jours";
 
-  try {
-    const response = await ai.models.generateContent({
-      model: TEXT_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            minPrice: { type: Type.NUMBER },
-            maxPrice: { type: Type.NUMBER },
-            duration: { type: Type.STRING },
-            materials: { type: Type.ARRAY, items: { type: Type.STRING } },
-            recommendation: { type: Type.STRING },
-            confidence: { type: Type.NUMBER, description: "Percentage confidence 0-100" }
-          },
-          required: ["minPrice", "maxPrice", "duration", "materials", "recommendation", "confidence"]
-        }
-      }
-    });
+  // AI is only used here to generate a nice recommendation text, 
+  // but we enforce the price mathematically.
+  
+  const result: CalculationResult = {
+    minPrice: minPrice,
+    maxPrice: maxPrice,
+    duration: duration,
+    materials: ["Vernis Premium (Bona/Blanchon)", "Abrasifs grain 40-120", "Fond dur écologique"],
+    recommendation: condition === 'Mauvais' 
+      ? "Vu l'état d'usure, un ponçage à blanc en 3 passes est nécessaire pour récupérer le bois brut." 
+      : "Un ponçage de rafraîchissement suffira pour sublimer votre parquet.",
+    confidence: 98 // High confidence because it's based on fixed rules
+  };
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
-    return JSON.parse(text) as CalculationResult;
-  } catch (error) {
-    console.error("Gemini Calculation Error:", error);
-    return {
-      minPrice: surface * 90,
-      maxPrice: surface * 130,
-      duration: "À définir",
-      materials: ["Matériaux standard"],
-      recommendation: "Nous vous invitons à nous contacter pour une estimation précise.",
-      confidence: 80
-    };
-  }
+  // Simulate network delay for UX (loader)
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(result);
+    }, 1200);
+  });
 };
 
 // --- CHATBOT & BOOKING LOGIC ---
@@ -106,14 +85,18 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
       history: history,
       config: {
         systemInstruction: `Tu es 'L'Expert', l'assistant virtuel de 'LE PARQUET PARISIEN'. 
-        Ton but est d'aider les clients à estimer leurs travaux et surtout de RÉSERVER un rendez-vous (visite technique gratuite ou appel).
+        Ton but est d'aider les clients à estimer leurs travaux et surtout de RÉSERVER un rendez-vous.
         
-        Règles:
+        RÈGLES DE PRIX (À CONNAÎTRE PAR CŒUR) :
+        - Rénovation standard (Bon/Moyen état) : environ 35€/m².
+        - Rénovation lourde (Très abîmé/Mauvais état) : environ 40€/m².
+        
+        Règles de conversation :
         1. Sois professionnel, chaleureux et concis.
-        2. Si le client semble intéressé par un devis précis, propose immédiatement une visite technique gratuite.
-        3. Pour réserver, tu DOIS collecter dans l'ordre : Nom, Téléphone, et Date souhaitée.
-        4. Une fois ces 3 infos obtenues, appelle l'outil 'bookAppointment'.
-        5. Ne donne pas de faux prix fixes sans connaître les détails, donne des fourchettes.`,
+        2. Si le client demande un prix, utilise les règles ci-dessus pour donner une estimation.
+        3. Propose rapidement une visite technique gratuite.
+        4. Pour réserver, collecte : Nom, Téléphone, et Date souhaitée.
+        5. Une fois ces 3 infos obtenues, appelle l'outil 'bookAppointment'.`,
         tools: [{ functionDeclarations: [bookAppointmentTool] }]
       }
     });

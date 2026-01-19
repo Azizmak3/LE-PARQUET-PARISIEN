@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Sparkles, MoveHorizontal, Loader2, Lock, ArrowRight, Image as ImageIcon, CheckCircle2, Download, Mail, Scan } from 'lucide-react';
 import { renovateImage } from '../services/geminiService';
 
@@ -31,6 +31,17 @@ const Renovator: React.FC = () => {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [selectedFinish, setSelectedFinish] = useState('vitrification-mat');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const visualizerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to visualizer when image is loaded
+  useEffect(() => {
+    if (image && visualizerRef.current) {
+        // Small delay to ensure render is complete
+        setTimeout(() => {
+            visualizerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }
+  }, [image]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,10 +62,6 @@ const Renovator: React.FC = () => {
     setProcessedImage(null);
     setIsLocked(false);
     setSelectedFinish('vitrification-mat');
-    // Auto-scroll to visualizer
-    setTimeout(() => {
-        document.getElementById('visualizer-stage')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
   };
 
   const handleProcess = async (finishType = selectedFinish) => {
@@ -116,6 +123,13 @@ const Renovator: React.FC = () => {
     alert(`✓ Visualisation HD envoyée à ${email} !`);
   };
 
+  const resetUpload = () => {
+    setImage(null);
+    setProcessedImage(null);
+    // Reset file input so same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
     <section id="renovator" className="py-12 md:py-24 bg-surface-gray border-t border-gray-100 overflow-hidden relative scroll-mt-24">
       <div className="container mx-auto px-4">
@@ -130,7 +144,7 @@ const Renovator: React.FC = () => {
             </p>
         </div>
 
-        <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden" id="visualizer-stage">
+        <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden" id="visualizer-stage" ref={visualizerRef}>
           
           {!image ? (
             <div className="flex flex-col md:flex-row">
@@ -150,7 +164,15 @@ const Renovator: React.FC = () => {
                             Sélectionner un fichier
                         </button>
                     </div>
-                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    {/* Important: Reset value on click to allow re-uploading same file if needed */}
+                    <input 
+                        ref={fileInputRef} 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleImageUpload} 
+                        onClick={(e) => (e.currentTarget.value = '')}
+                    />
                 </div>
 
                 {/* Examples Section */}
@@ -185,7 +207,7 @@ const Renovator: React.FC = () => {
             <div className="flex flex-col h-full">
               {/* Toolbar */}
               <div className="bg-white border-b border-gray-100 p-4 flex justify-between items-center shrink-0">
-                 <button onClick={() => setImage(null)} className="text-sm font-bold text-gray-500 hover:text-brand-dark flex items-center gap-2">
+                 <button onClick={resetUpload} className="text-sm font-bold text-gray-500 hover:text-brand-dark flex items-center gap-2">
                     ← Retour
                  </button>
                  <div className="flex gap-2">
@@ -197,7 +219,7 @@ const Renovator: React.FC = () => {
                   <div className="w-full md:w-3/4 flex flex-col">
                     {/* Feature 2: AI Analysis Card (Visible when processing or done) */}
                     {processedImage && !isLocked && (
-                        <div className="bg-orange-50/50 border-b border-orange-100 p-4 flex flex-wrap gap-4 items-center justify-between shrink-0">
+                        <div className="bg-orange-50/50 border-b border-orange-100 p-4 flex flex-wrap gap-4 items-center justify-between shrink-0 animate-fade-in">
                             <div className="flex items-center gap-2 text-action-orange font-bold text-sm">
                                 <Scan size={18} /> Analyse IA :
                             </div>
@@ -221,7 +243,7 @@ const Renovator: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="relative w-full bg-gray-100 overflow-hidden group flex-1 min-h-[400px] md:min-h-[500px]">
+                    <div className="relative w-full bg-gray-100 overflow-hidden group flex-1 min-h-[350px] md:min-h-[500px]">
                         {/* PROCESSING STATE */}
                         {isProcessing && (
                         <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-50 backdrop-blur-md">
@@ -270,7 +292,19 @@ const Renovator: React.FC = () => {
 
                         {/* VISUALIZER */}
                         {!processedImage ? (
-                        <img src={image} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
+                        <>
+                            <img src={image} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
+                            {/* MOBILE OVERLAY CTA FOR PROCESSING */}
+                            <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent flex justify-center md:hidden pb-8">
+                                <button 
+                                    onClick={() => handleProcess()}
+                                    disabled={isProcessing}
+                                    className="w-full bg-action-orange text-white py-3.5 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 animate-bounce-subtle"
+                                >
+                                    <Sparkles size={18} /> LANCER L'IA
+                                </button>
+                            </div>
+                        </>
                         ) : (
                         <div className="relative w-full h-full select-none cursor-ew-resize"
                             onMouseMove={(e) => {
@@ -310,7 +344,7 @@ const Renovator: React.FC = () => {
                   </div>
 
                   {/* Sidebar / Controls */}
-                  <div className="w-full md:w-1/4 bg-white border-l border-gray-100 flex flex-col">
+                  <div className="w-full md:w-1/4 bg-white border-l border-gray-100 flex flex-col z-10">
                       {!isLocked && processedImage ? (
                           <div className="p-4 md:p-6 space-y-6 h-full flex flex-col">
                              
@@ -362,8 +396,8 @@ const Renovator: React.FC = () => {
                              </button>
                           </div>
                       ) : (
-                        // Default Upload State CTA
-                        <div className="p-6 flex flex-col h-full justify-center items-center text-center">
+                        // Default Upload State CTA - DESKTOP ONLY
+                        <div className="hidden md:flex p-6 flex-col h-full justify-center items-center text-center">
                             {!isProcessing && (
                                 <>
                                     <Sparkles size={32} className="text-gray-200 mb-4" />

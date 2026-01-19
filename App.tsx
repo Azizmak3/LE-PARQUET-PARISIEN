@@ -188,6 +188,9 @@ const App: React.FC = () => {
           </div>
         </div>
 
+        {/* AI LEAD MAGNET (RENOVATOR) - MOVED UP FOR VISIBILITY */}
+        <Renovator />
+
         {/* SERVICES */}
         <Services />
 
@@ -204,9 +207,6 @@ const App: React.FC = () => {
         
         {/* TESTIMONIALS */}
         <Testimonials />
-
-        {/* AI LEAD MAGNET (RENOVATOR) */}
-        <Renovator />
 
         {/* PRO SECTION */}
         <ProSection />

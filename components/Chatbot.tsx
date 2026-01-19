@@ -59,10 +59,10 @@ const Chatbot: React.FC = () => {
   const isBookingConfirmation = (text: string) => text.toLowerCase().includes("rendez-vous confirmé") || text.toLowerCase().includes("sms de confirmation");
 
   return (
-    <div className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-[60] flex flex-col items-end font-sans">
+    <div className="hidden md:flex fixed bottom-6 right-6 z-[60] flex-col items-end font-sans">
       {/* Chat Window */}
       {isOpen && (
-        <div className="bg-white w-[90vw] md:w-[380px] h-[550px] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] flex flex-col mb-4 overflow-hidden border border-gray-200 animate-slide-up origin-bottom-right">
+        <div className="bg-white w-[380px] h-[550px] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] flex flex-col mb-4 overflow-hidden border border-gray-200 animate-slide-up origin-bottom-right">
           {/* Header */}
           <div className="bg-brand-dark p-4 flex justify-between items-center text-white border-b border-gray-800">
             <div className="flex items-center gap-3">
