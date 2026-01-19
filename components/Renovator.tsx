@@ -44,13 +44,24 @@ const Renovator: React.FC = () => {
     }
   }, [imagePreview]);
 
-  // Clean up blob URLs
+  // Clean up blob URLs to prevent memory leaks
   useEffect(() => {
     return () => {
         if (processedImage && processedImage.startsWith('blob:')) {
             URL.revokeObjectURL(processedImage);
         }
+        if (imagePreview && imagePreview.startsWith('blob:')) {
+            URL.revokeObjectURL(imagePreview);
+        }
     };
+  }, [processedImage, imagePreview]);
+
+  // Mobile Safari Fix: Preload blob image to ensure rendering
+  useEffect(() => {
+    if (processedImage) {
+      const img = new Image();
+      img.src = processedImage;
+    }
   }, [processedImage]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,15 +69,15 @@ const Renovator: React.FC = () => {
     if (file) {
       console.log('[UPLOAD] File selected:', file.name, file.size, 'bytes');
       fileRef.current = file;
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-        setProcessedImage(null);
-        setIsLocked(false);
-        setError(null);
-        setSelectedFinish('vitrification-mat');
-      };
-      reader.readAsDataURL(file);
+      
+      // Use Blob URL instead of Base64 to save memory on mobile
+      const objectUrl = URL.createObjectURL(file);
+      setImagePreview(objectUrl);
+      
+      setProcessedImage(null);
+      setIsLocked(false);
+      setError(null);
+      setSelectedFinish('vitrification-mat');
     }
   };
 
@@ -98,7 +109,6 @@ const Renovator: React.FC = () => {
     setError(null);
 
     // CRITICAL: Failsafe timer to FORCE spinner stop
-    // Increased to 90s to allow for network latency and model generation time
     const failsafeTimer = setTimeout(() => {
       console.error('[PROCESS] FAILSAFE TRIGGERED - forcing spinner stop');
       if (isProcessing) {
@@ -129,7 +139,7 @@ const Renovator: React.FC = () => {
 
       console.log('[PROCESS] Calling renovateImage with prompt:', prompt);
 
-      // Call the service (this now throws on error)
+      // Call the service
       const result = await renovateImage(fileRef.current, prompt);
       
       clearTimeout(failsafeTimer);
@@ -150,11 +160,9 @@ const Renovator: React.FC = () => {
       clearTimeout(failsafeTimer);
       console.error('[PROCESS] Caught error:', err);
       
-      // Display the error message from the service
       setError(err.message || "Une erreur inattendue est survenue.");
       
     } finally {
-      // CRITICAL: Always ensure spinner stops
       console.log('[PROCESS] Finally block - stopping spinner');
       setIsProcessing(false);
     }
@@ -184,6 +192,10 @@ const Renovator: React.FC = () => {
 
   const resetUpload = () => {
     console.log('[RESET] Resetting upload');
+    // Cleanup old preview if it was a blob
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+    }
     setImagePreview(null);
     setProcessedImage(null);
     setError(null);
@@ -372,7 +384,13 @@ const Renovator: React.FC = () => {
                             </div>
                         </>
                         ) : (
-                        <div className="relative w-full h-full select-none cursor-ew-resize"
+                        <div className="relative w-full h-full select-none cursor-ew-resize touch-none"
+                            style={{
+                                WebkitUserSelect: 'none',
+                                WebkitTouchCallout: 'none',
+                                transform: 'translateZ(0)', // Force Hardware Acceleration
+                                WebkitTransform: 'translateZ(0)'
+                            }}
                             onMouseMove={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
                                 const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
@@ -384,25 +402,56 @@ const Renovator: React.FC = () => {
                                 setSliderPosition((x / rect.width) * 100);
                             }}
                         >
+                            {/* After Image (Background) */}
                             <div className="absolute inset-0 w-full h-full">
-                            <img src={processedImage} alt="After" className="w-full h-full object-cover filter brightness-110 saturate-125 contrast-110" />
+                                <img 
+                                    src={processedImage} 
+                                    alt="After" 
+                                    loading="eager"
+                                    className="w-full h-full object-cover filter brightness-110 saturate-125 contrast-110 block"
+                                    style={{
+                                        display: 'block',
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover'
+                                    }}
+                                />
                             </div>
+                            
+                            {/* Before Image (Foreground with clip-path) */}
                             <div 
-                            className="absolute inset-0 w-full h-full overflow-hidden"
-                            style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+                                className="absolute inset-0 w-full h-full overflow-hidden"
+                                style={{ 
+                                    clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
+                                    WebkitClipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
+                                    transform: 'translateZ(0)',
+                                    WebkitTransform: 'translateZ(0)'
+                                }}
                             >
-                            <img src={imagePreview} alt="Before" className="w-full h-full object-cover grayscale brightness-90" />
-                            <div className="absolute top-6 left-6 bg-black/50 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg border border-white/10">AVANT</div>
+                                <img 
+                                    src={imagePreview} 
+                                    alt="Before" 
+                                    loading="eager"
+                                    className="w-full h-full object-cover grayscale brightness-90 block" 
+                                    style={{
+                                        display: 'block',
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover'
+                                    }}
+                                />
+                                <div className="absolute top-6 left-6 bg-black/50 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg border border-white/10">AVANT</div>
                             </div>
                             <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg">APRÈS</div>
                             
+                            {/* Slider Handle */}
                             <div 
-                            className="absolute top-0 bottom-0 w-1 bg-white z-20 shadow-[0_0_20px_rgba(0,0,0,0.3)] pointer-events-none"
-                            style={{ left: `${sliderPosition}%` }}
+                                className="absolute top-0 bottom-0 w-1 bg-white z-20 shadow-[0_0_20px_rgba(0,0,0,0.3)] pointer-events-none"
+                                style={{ left: `${sliderPosition}%` }}
                             >
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xl border-4 border-white/50">
-                                <MoveHorizontal size={20} className="text-brand-dark" />
-                            </div>
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xl border-4 border-white/50">
+                                    <MoveHorizontal size={20} className="text-brand-dark" />
+                                </div>
                             </div>
                         </div>
                         )}
