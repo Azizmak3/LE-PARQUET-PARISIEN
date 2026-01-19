@@ -228,16 +228,22 @@ CRITICAL INSTRUCTIONS:
 
     console.log(`[RENOVATE] API responded in ${Date.now() - startTime}ms`);
 
-    // 4. Extract Image
+    // 4. Extract Image with SAFE GUARDS for TypeScript
     const candidates = response.candidates;
     if (!candidates || candidates.length === 0) throw new Error("L'IA n'a pas renvoyé de résultat.");
     
-    const parts = candidates[0].content.parts;
+    const firstCandidate = candidates[0];
+    if (!firstCandidate.content || !firstCandidate.content.parts) {
+        throw new Error("Structure de réponse invalide.");
+    }
+
+    const parts = firstCandidate.content.parts;
     const imagePart = parts.find(p => p.inlineData);
 
-    if (imagePart && imagePart.inlineData) {
+    if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
         const resultBase64 = imagePart.inlineData.data;
         const resultMime = imagePart.inlineData.mimeType || 'image/jpeg';
+        
         // Create Blob URL
         const byteCharacters = atob(resultBase64);
         const byteNumbers = new Array(byteCharacters.length);
@@ -268,9 +274,15 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
       config: { imageConfig: { imageSize: size } }
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
+    // Safely access nested optional properties
+    const candidates = response.candidates;
+    const parts = candidates?.[0]?.content?.parts;
+
+    if (parts) {
+      for (const part of parts) {
+        if (part.inlineData && part.inlineData.data) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
       }
     }
     return null;
