@@ -36,7 +36,7 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
 
 /**
  * Resizes an image File to a Blob with strict mobile limits.
- * Uses 512px to ensure universal mobile compatibility.
+ * Increased to 800px to ensure the AI can see furniture details to preserve them.
  */
 const resizeImageToBlob = (file: File): Promise<Blob | null> => {
   return new Promise((resolve) => {
@@ -50,8 +50,8 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
     img.onload = () => {
       clearTimeout(timeout);
       try {
-        // MOBILE OPTIMIZATION: 512px is the safe safe limit for texture memory
-        const MAX_SIZE = 512; 
+        // OPTIMIZATION: 800px is a good balance between detail (for consistency) and speed/memory
+        const MAX_SIZE = 800; 
         let w = img.width;
         let h = img.height;
 
@@ -84,10 +84,10 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         
-        // standard jpeg quality for mobile
+        // Slightly higher quality for better AI recognition
         canvas.toBlob((blob) => {
           resolve(blob);
-        }, 'image/jpeg', 0.8);
+        }, 'image/jpeg', 0.85);
       } catch (e) {
         console.error('[RESIZE] Error:', e);
         resolve(null);
@@ -228,6 +228,7 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
 
   try {
     // 1. Resize image (Critical for speed and MOBILE MEMORY)
+    // 800px ensures enough detail for the model to preserve furniture structure
     const blob = await resizeImageToBlob(fileInput);
     if (!blob) throw new Error("Erreur lors de la préparation de l'image.");
 
@@ -235,8 +236,6 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
     if (!process.env.API_KEY) {
       console.warn("⚠️ [GEMINI] No API Key found. Running in DEMO MODE.");
       await new Promise(r => setTimeout(r, 1500));
-      // Just return the input image as BLOB URL in demo mode
-      // This confirms that if the image shows, the blob logic is working
       return URL.createObjectURL(blob);
     }
 
@@ -244,13 +243,19 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
     const base64Data = await blobToBase64(blob);
 
     // 3. Call Google Gemini Directly
-    const finalPrompt = `${promptText}
-
-CRITICAL INSTRUCTIONS:
-- Return a modified image of the floor provided.
-- Apply high-quality renovation: remove scratches, fix wear, make it look new.
-- Maintain the perspective and layout of the room exactly.
-- Ensure the result is photorealistic.`;
+    // STRICT EDITING PROMPT
+    const finalPrompt = `
+    You are an expert renovation AI. 
+    INPUT: A photo of a room with existing flooring.
+    TASK: Renovate ONLY the floor texture based on this style: "${promptText}".
+    
+    CRITICAL CONSTRAINTS (DO NOT IGNORE):
+    1. GEOMETRY LOCK: The perspective, walls, furniture, ceiling, windows, and objects must remain EXACTLY in the same pixel coordinates.
+    2. NO HALLUCINATIONS: Do not add new furniture or remove existing objects.
+    3. LIGHTING MATCH: The new floor must reflect the light sources exactly as the old floor did.
+    4. REPLACEMENT: Replace the old floor texture with a pristine, renovated version (smooth, clean, high-end finish).
+    
+    The output image must align perfectly with the input image.`;
 
     const response = await ai.models.generateContent({
       model: RENOVATE_MODEL,
@@ -291,8 +296,6 @@ CRITICAL INSTRUCTIONS:
         }
         
         // 4. USE DATA URI (Robust for Mobile)
-        // Blob URLs can be revoked or fail in strict mobile webviews.
-        // Data URIs are safer for immediate display.
         const dataUri = `data:${resultMime};base64,${resultBase64}`;
         
         console.log(`[GEMINI] Generated Data URI, length: ${dataUri.length}`);
@@ -325,8 +328,6 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
 
     for (const part of parts) {
       if (part.inlineData && part.inlineData.data) {
-        // For inspiration, we can also use Data URI for consistency, or keep Blob if it works.
-        // Let's stick to blob here as high-res images might be large for Data URI
         const blob = base64ToBlob(part.inlineData.data, 'image/png');
         return URL.createObjectURL(blob);
       }
