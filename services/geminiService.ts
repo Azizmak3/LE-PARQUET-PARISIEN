@@ -1,7 +1,8 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { CalculationResult } from '../types';
 
-// Ensure API key is treated as string for TypeScript, defaulting to empty if undefined (handled at runtime)
+// STRICT ENV VAR HANDLING: Ensure API_KEY is a string for the SDK constructor.
+// Vite replaces process.env.API_KEY via define, but TS needs the cast.
 const API_KEY = (process.env.API_KEY as string) || '';
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
@@ -179,13 +180,17 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
 
     let result = await chat.sendMessage({ message: newMessage });
     
-    // Strict guard for result.text access if needed, though SDK usually guarantees text or error
+    // Strict guard for result access
     if (!result) return "Erreur: Pas de réponse de l'IA.";
 
     const calls = result.functionCalls;
     if (calls && calls.length > 0) {
       const call = calls[0];
-      const nameArg = call.args['name'] as string | undefined;
+      
+      // TS18048 FIX: Ensure args exists before accessing
+      const args = call.args || {};
+      const nameArg = args['name'] as string | undefined;
+
       const functionResponse = {
         result: "success", 
         message: `Rendez-vous confirmé pour ${nameArg || 'le client'}.`
@@ -199,6 +204,7 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
       });
     }
     
+    // Fallback to empty string if text is undefined
     return result.text || "Désolé, je n'ai pas pu générer de réponse.";
   } catch (error) {
     console.error("Chat Error:", error);
@@ -249,14 +255,14 @@ CRITICAL INSTRUCTIONS:
 
     console.log(`[RENOVATE] API responded in ${Date.now() - startTime}ms`);
 
-    // 4. Extract Image with SAFE GUARDS for TypeScript
+    // 4. Extract Image with SAFE GUARDS for TypeScript (TS2532)
     const candidates = response.candidates;
     if (!candidates || candidates.length === 0) throw new Error("L'IA n'a pas renvoyé de résultat.");
     
     const firstCandidate = candidates[0];
     
     // Guard: Content existence
-    if (!firstCandidate.content) {
+    if (!firstCandidate || !firstCandidate.content) {
         throw new Error("Structure de réponse invalide (contenu manquant).");
     }
 
@@ -270,6 +276,7 @@ CRITICAL INSTRUCTIONS:
 
     if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
         const resultBase64 = imagePart.inlineData.data;
+        // TS2769 FIX: Ensure mimeType is a string
         const resultMime = imagePart.inlineData.mimeType || 'image/jpeg';
         
         // Create Blob URL
@@ -306,10 +313,12 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
     const candidates = response.candidates;
     if (!candidates || candidates.length === 0) return null;
 
-    const content = candidates[0].content;
-    if (!content || !content.parts) return null;
+    const firstCandidate = candidates[0];
+    if (!firstCandidate || !firstCandidate.content) return null;
 
-    const parts = content.parts;
+    const parts = firstCandidate.content.parts;
+    // Guard against parts being undefined before iterating
+    if (!parts) return null;
 
     for (const part of parts) {
       if (part.inlineData && part.inlineData.data) {
