@@ -140,15 +140,27 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
 
 export const renovateImage = async (base64Image: string, promptText: string): Promise<string | null> => {
   try {
-    // Send to Netlify Function proxy to keep API Key secure
+    // 1. Parse Input: Handle both raw base64 and Data URL (data:image/jpeg;base64,...)
+    let mimeType = 'image/jpeg';
+    let cleanBase64 = base64Image;
+
+    if (base64Image.includes(';base64,')) {
+        const parts = base64Image.split(';base64,');
+        // parts[0] is "data:image/jpeg"
+        mimeType = parts[0].replace('data:', '');
+        cleanBase64 = parts[1];
+    }
+
+    // 2. Call Netlify Function
     const response = await fetch('/.netlify/functions/gemini-image', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            image: base64Image,
-            prompt: promptText || "Rénove ce parquet pour qu'il soit neuf et brillant. Style haussmannien moderne."
+            prompt: promptText || "Rénove ce parquet pour qu'il soit neuf et brillant. Style haussmannien moderne.",
+            imageBase64: cleanBase64,
+            mimeType: mimeType
         })
     });
 
@@ -158,17 +170,19 @@ export const renovateImage = async (base64Image: string, promptText: string): Pr
 
     const data = await response.json();
     
-    // Extract image from path: data.candidates[0].content.parts[0].inlineData.data
-    const generatedBase64 = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
-    if (generatedBase64) {
-      return `data:image/jpeg;base64,${generatedBase64}`;
+    // 3. Reconstruct Data URL from response
+    if (data.imageBase64) {
+      // Use mimeType from response or fallback to input type
+      const outMime = data.mimeType || mimeType;
+      return `data:${outMime};base64,${data.imageBase64}`;
     }
+    
     return null;
+
   } catch (error) {
     console.error("Renovation Error:", error);
-    // Return fallback on error to keep the UX smooth (Demo Mode)
-    return "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80";
+    // Return null so the UI knows it failed, instead of showing a fake image
+    return null; 
   }
 };
 

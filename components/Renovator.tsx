@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Sparkles, MoveHorizontal, Loader2, Lock, ArrowRight, Image as ImageIcon, CheckCircle2, Download, Mail, Scan } from 'lucide-react';
+import { Upload, Sparkles, MoveHorizontal, Loader2, Lock, ArrowRight, Image as ImageIcon, CheckCircle2, Download, Mail, Scan, AlertCircle } from 'lucide-react';
 import { renovateImage } from '../services/geminiService';
 
 const EXAMPLES = [
@@ -28,6 +28,7 @@ const Renovator: React.FC = () => {
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sliderPosition, setSliderPosition] = useState(50);
   const [selectedFinish, setSelectedFinish] = useState('vitrification-mat');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,6 +52,7 @@ const Renovator: React.FC = () => {
         setImage(reader.result as string);
         setProcessedImage(null);
         setIsLocked(false);
+        setError(null);
         setSelectedFinish('vitrification-mat');
       };
       reader.readAsDataURL(file);
@@ -61,13 +63,14 @@ const Renovator: React.FC = () => {
     setImage(src);
     setProcessedImage(null);
     setIsLocked(false);
+    setError(null);
     setSelectedFinish('vitrification-mat');
   };
 
   const handleProcess = async (finishType = selectedFinish) => {
     if (!image) return;
     setIsProcessing(true);
-    const base64 = image.includes(',') ? image.split(',')[1] : ''; 
+    setError(null);
     
     let prompt = "Rénove ce parquet pour qu'il soit neuf et brillant. Style haussmannien moderne.";
     
@@ -86,16 +89,20 @@ const Renovator: React.FC = () => {
             break;
     }
 
-    const result = await renovateImage(base64 || 'mock', prompt);
+    // Pass the full Data URL image string to the service
+    const result = await renovateImage(image, prompt);
     
-    setTimeout(() => {
-        setProcessedImage(result || image); 
-        setIsProcessing(false);
+    setIsProcessing(false);
+    
+    if (result) {
+        setProcessedImage(result);
         // Only lock on the very first generation to capture lead
         if (!processedImage) {
             setIsLocked(true);
         }
-    }, 2000);
+    } else {
+        setError("La rénovation a échoué. Veuillez réessayer.");
+    }
   };
 
   const handleFinishChange = async (finishId: string) => {
@@ -126,6 +133,7 @@ const Renovator: React.FC = () => {
   const resetUpload = () => {
     setImage(null);
     setProcessedImage(null);
+    setError(null);
     // Reset file input so same file can be selected again
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -244,6 +252,21 @@ const Renovator: React.FC = () => {
                     )}
 
                     <div className="relative w-full bg-gray-100 overflow-hidden group flex-1 min-h-[350px] md:min-h-[500px]">
+                        {/* ERROR STATE */}
+                        {error && (
+                             <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-50 backdrop-blur-md px-4 text-center">
+                                <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                                <h3 className="text-xl font-bold text-brand-dark mb-2">Erreur de génération</h3>
+                                <p className="text-gray-500 mb-6">{error}</p>
+                                <button 
+                                    onClick={() => handleProcess()}
+                                    className="px-6 py-2 bg-brand-dark text-white rounded-lg font-bold"
+                                >
+                                    Réessayer
+                                </button>
+                             </div>
+                        )}
+
                         {/* PROCESSING STATE */}
                         {isProcessing && (
                         <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-50 backdrop-blur-md">
