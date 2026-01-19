@@ -139,32 +139,35 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
 // --- IMAGE FEATURES ---
 
 export const renovateImage = async (base64Image: string, promptText: string): Promise<string | null> => {
-  // FALLBACK / DEMO MODE: If no API Key, return a high-quality "After" image simulation
-  if (!process.env.API_KEY) {
-    // Return a beautiful parquet floor image to simulate the "After" effect for demo purposes
-    return "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80";
-  }
-
   try {
-    const response = await ai.models.generateContent({
-      model: EDIT_MODEL,
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-          { text: promptText || "Rénove ce parquet pour qu'il soit neuf et brillant. Style haussmannien moderne." }
-        ]
-      }
+    // Send to Netlify Function proxy to keep API Key secure
+    const response = await fetch('/.netlify/functions/gemini-image', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            image: base64Image,
+            prompt: promptText || "Rénove ce parquet pour qu'il soit neuf et brillant. Style haussmannien moderne."
+        })
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+    if (!response.ok) {
+        throw new Error(`Netlify Function returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Extract image from path: data.candidates[0].content.parts[0].inlineData.data
+    const generatedBase64 = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+    if (generatedBase64) {
+      return `data:image/jpeg;base64,${generatedBase64}`;
     }
     return null;
   } catch (error) {
     console.error("Renovation Error:", error);
-    // Return fallback on error too, to keep the UX smooth
+    // Return fallback on error to keep the UX smooth (Demo Mode)
     return "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80";
   }
 };
