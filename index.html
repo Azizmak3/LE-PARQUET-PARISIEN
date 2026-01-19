@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LE PARQUET PARISIEN | Devis Immédiat & Artisans Certifiés</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Arial', 'Helvetica', 'sans-serif'],
+              // Removed serif to force consistency if accidentally used
+            },
+            colors: {
+              brand: {
+                dark: '#222222', 
+                blue: '#1E3A8A', // Trust blue like HomeAdvisor
+              },
+              action: {
+                orange: '#F97316', // High conversion orange
+                hover: '#EA580C',
+              },
+              surface: {
+                white: '#FFFFFF',
+                gray: '#F3F4F6',
+              }
+            },
+            boxShadow: {
+              'card': '0 2px 8px rgba(0,0,0,0.1)',
+              'floating': '0 10px 30px rgba(0,0,0,0.15)',
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background-color: #FFFFFF;
+        color: #222222;
+        font-family: Arial, Helvetica, sans-serif; /* Explicit fallback */
+      }
+      .clip-diagonal {
+        clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+      }
+      
+      /* Feature: Pulse Animation */
+      @keyframes urgency-pulse {
+        0%, 100% { 
+          background-color: #F97316; /* action-orange */
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7);
+        }
+        50% { 
+          background-color: #EA580C;
+          transform: scale(1.05);
+          box-shadow: 0 0 0 10px rgba(249, 115, 22, 0);
+        }
+      }
+      .urgency-badge {
+        animation: urgency-pulse 2s infinite;
+      }
+
+      /* Feature: Slide In Left */
+      @keyframes slideInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      .animate-slide-in-left {
+        animation: slideInLeft 0.4s ease-out;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-white font-sans antialiased overflow-x-hidden">
+    <div id="root"></div>
+  </body>
+</html>
