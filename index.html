@@ -30,6 +30,31 @@
             boxShadow: {
               'card': '0 2px 8px rgba(0,0,0,0.1)',
               'floating': '0 10px 30px rgba(0,0,0,0.15)',
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'scale-up': 'scaleUp 0.4s ease-out forwards',
+              'slide-up': 'slideUp 0.5s ease-out forwards',
+              'slide-in-left': 'slideInLeft 0.4s ease-out forwards',
+              'pulse-slow': 'pulse 3s infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              scaleUp: {
+                '0%': { transform: 'scale(0.95)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              slideInLeft: {
+                'from': { opacity: '0', transform: 'translateX(-100%)' },
+                'to': { opacity: '1', transform: 'translateX(0)' },
+              }
             }
           },
         },
@@ -64,20 +89,10 @@
       .urgency-badge {
         animation: urgency-pulse 2s infinite;
       }
-
-      /* Feature: Slide In Left */
-      @keyframes slideInLeft {
-        from {
-          opacity: 0;
-          transform: translateX(-100%);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
-      }
-      .animate-slide-in-left {
-        animation: slideInLeft 0.4s ease-out;
+      
+      /* Utilities */
+      .touch-none {
+        touch-action: none;
       }
     </style>
   <script type="importmap">

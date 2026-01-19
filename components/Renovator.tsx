@@ -44,29 +44,32 @@ const Renovator: React.FC = () => {
     }
   }, [imagePreview]);
 
-  // Clean up blob URLs
+  // Clean up blob URLs to prevent memory leaks
   useEffect(() => {
     return () => {
         if (processedImage && processedImage.startsWith('blob:')) {
             URL.revokeObjectURL(processedImage);
         }
+        if (imagePreview && imagePreview.startsWith('blob:')) {
+            URL.revokeObjectURL(imagePreview);
+        }
     };
-  }, [processedImage]);
+  }, [processedImage, imagePreview]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       console.log('[UPLOAD] File selected:', file.name, file.size, 'bytes');
       fileRef.current = file;
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-        setProcessedImage(null);
-        setIsLocked(false);
-        setError(null);
-        setSelectedFinish('vitrification-mat');
-      };
-      reader.readAsDataURL(file);
+      
+      // Use Blob URL instead of Base64 to save memory on mobile
+      const objectUrl = URL.createObjectURL(file);
+      setImagePreview(objectUrl);
+      
+      setProcessedImage(null);
+      setIsLocked(false);
+      setError(null);
+      setSelectedFinish('vitrification-mat');
     }
   };
 
@@ -98,7 +101,6 @@ const Renovator: React.FC = () => {
     setError(null);
 
     // CRITICAL: Failsafe timer to FORCE spinner stop
-    // Increased to 90s to allow for network latency and model generation time
     const failsafeTimer = setTimeout(() => {
       console.error('[PROCESS] FAILSAFE TRIGGERED - forcing spinner stop');
       if (isProcessing) {
@@ -129,7 +131,7 @@ const Renovator: React.FC = () => {
 
       console.log('[PROCESS] Calling renovateImage with prompt:', prompt);
 
-      // Call the service (this now throws on error)
+      // Call the service
       const result = await renovateImage(fileRef.current, prompt);
       
       clearTimeout(failsafeTimer);
@@ -150,11 +152,9 @@ const Renovator: React.FC = () => {
       clearTimeout(failsafeTimer);
       console.error('[PROCESS] Caught error:', err);
       
-      // Display the error message from the service
       setError(err.message || "Une erreur inattendue est survenue.");
       
     } finally {
-      // CRITICAL: Always ensure spinner stops
       console.log('[PROCESS] Finally block - stopping spinner');
       setIsProcessing(false);
     }
@@ -184,6 +184,10 @@ const Renovator: React.FC = () => {
 
   const resetUpload = () => {
     console.log('[RESET] Resetting upload');
+    // Cleanup old preview if it was a blob
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+    }
     setImagePreview(null);
     setProcessedImage(null);
     setError(null);
@@ -372,7 +376,7 @@ const Renovator: React.FC = () => {
                             </div>
                         </>
                         ) : (
-                        <div className="relative w-full h-full select-none cursor-ew-resize"
+                        <div className="relative w-full h-full select-none cursor-ew-resize touch-none"
                             onMouseMove={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
                                 const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
