@@ -13,18 +13,22 @@ const GEN_MODEL = 'gemini-3-pro-image-preview';
 
 /**
  * Resizes an image File to a Blob with strict mobile limits
- * Reduced to 600px max to prevent Mobile Safari memory crashes with Data URLs
+ * Reduced to 512px max to ensure Data URL stays < 500KB for instant mobile rendering
  */
 const resizeImageToBlob = (file: File): Promise<Blob | null> => {
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(null), 3000);
+    // Extended timeout for older mobile devices processing high-res inputs
+    const timeout = setTimeout(() => {
+        console.warn('[RESIZE] Timed out');
+        resolve(null);
+    }, 4500);
 
     const img = new Image();
     img.onload = () => {
       clearTimeout(timeout);
       try {
-        // MOBILE OPTIMIZATION: 600px max ensures output Base64 stays under ~1.5MB
-        const MAX_SIZE = 600; 
+        // MOBILE OPTIMIZATION: 512px is the sweet spot for mobile screens
+        const MAX_SIZE = 512; 
         let w = img.width;
         let h = img.height;
 
@@ -48,15 +52,15 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
           return;
         }
 
-        // Fill white background to prevent transparent PNG issues
+        // Fill white background
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         
-        // Heavy compression (0.7) to ensure lightweight transport
+        // High compression (0.6) for lightweight transport
         canvas.toBlob((blob) => {
           resolve(blob);
-        }, 'image/jpeg', 0.7);
+        }, 'image/jpeg', 0.6);
       } catch (e) {
         console.error(e);
         resolve(null);
@@ -162,121 +166,88 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
     });
 
     let result = await chat.sendMessage({ message: newMessage });
-    
-    if (!result) return "Erreur: Pas de réponse de l'IA.";
-
-    const calls = result.functionCalls;
-    if (calls && calls.length > 0) {
-      const call = calls[0];
-      const args = call.args || {};
-      const nameArg = args['name'] as string | undefined;
-
-      const functionResponse = {
-        result: "success", 
-        message: `Rendez-vous confirmé pour ${nameArg || 'le client'}.`
-      };
-      
-      result = await chat.sendMessage({
-        message: [{
-          functionResponse: { name: call.name, response: functionResponse }
-        }]
-      });
-    }
-    
-    return result.text || "Désolé, je n'ai pas pu générer de réponse.";
+    return result.text || "Je n'ai pas compris.";
   } catch (error) {
     console.error("Chat Error:", error);
-    return "Je rencontre une difficulté technique. Appelez le 06 14 49 49 07.";
+    return "Désolé, le service est indisponible.";
   }
 };
 
-// --- IMAGE RENOVATION (CLIENT SIDE) ---
-export const renovateImage = async (fileInput: File, promptText: string): Promise<string | null> => {
-  const startTime = Date.now();
-  
-  try {
-    const blob = await resizeImageToBlob(fileInput);
-    if (!blob) throw new Error("Erreur image.");
+// --- IMAGE RENOVATION LOGIC ---
+export const renovateImage = async (file: File, prompt: string): Promise<string | null> => {
+  if (!API_KEY) {
+    console.error("Missing API Key");
+    return null;
+  }
 
-    // Demo Mode
-    if (!API_KEY) {
-      await new Promise(r => setTimeout(r, 1500));
-      const base64Data = await blobToBase64(blob);
-      // Return Data URL even in demo mode
-      return `data:image/jpeg;base64,${base64Data}`;
-    }
+  try {
+    const blob = await resizeImageToBlob(file);
+    if (!blob) return null;
 
     const base64Data = await blobToBase64(blob);
 
-    // Call Gemini
-    const finalPrompt = `${promptText}
-    IMPORTANT: Output a PHOTOREALISTIC image. 
-    Maintain the exact perspective. 
-    Output must be a standard image.`;
-
     const response = await ai.models.generateContent({
       model: RENOVATE_MODEL,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: finalPrompt },
-            { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
-          ]
-        }
-      ],
-      config: {
-        responseModalities: ["IMAGE"], 
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType: blob.type,
+              data: base64Data
+            }
+          },
+          {
+            text: prompt
+          }
+        ]
       }
     });
 
-    const candidates = response.candidates;
-    if (!candidates || candidates.length === 0) throw new Error("Erreur IA");
-
-    const imagePart = candidates[0].content?.parts?.find(p => p.inlineData);
-
-    if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
-        let resultBase64 = imagePart.inlineData.data;
-        // MOBILE CRITICAL FIX: Strictly sanitize base64 string
-        // Remove line breaks, spaces, or weird chars that might break mobile renderers
-        resultBase64 = resultBase64.replace(/[\r\n\s]+/g, '');
-
-        let mime = imagePart.inlineData.mimeType || 'image/jpeg';
-        
-        // Validate
-        if (resultBase64.length < 100) throw new Error("Image corrompue");
-
-        return `data:${mime};base64,${resultBase64}`;
+    if (response.candidates && response.candidates.length > 0 && response.candidates[0].content && response.candidates[0].content.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
     }
-
-    throw new Error("Pas d'image générée.");
-
-  } catch (error: any) {
-    console.error('[RENOVATE] ERROR:', error);
-    if (error.message?.includes('400')) return null;
-    throw new Error("Une erreur est survenue.");
+    return null;
+  } catch (error) {
+    console.error("Renovate Image Error:", error);
+    return null;
   }
 };
 
+// --- INSPIRATION GENERATION LOGIC ---
 export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4K'): Promise<string | null> => {
-  if (!API_KEY) return null;
+  if (!API_KEY) {
+    console.error("Missing API Key");
+    return null;
+  }
 
   try {
     const response = await ai.models.generateContent({
       model: GEN_MODEL,
-      contents: { parts: [{ text: prompt }] },
-      config: { imageConfig: { imageSize: size } }
+      contents: {
+        parts: [{ text: prompt }]
+      },
+      config: {
+        imageConfig: {
+          imageSize: size,
+          aspectRatio: "1:1"
+        }
+      }
     });
 
-    const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-    if (part?.inlineData?.data) {
-      const cleanData = part.inlineData.data.replace(/[\r\n\s]+/g, '');
-      return `data:image/png;base64,${cleanData}`;
+    if (response.candidates && response.candidates.length > 0 && response.candidates[0].content && response.candidates[0].content.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
     }
-    
     return null;
   } catch (error) {
-    console.error(error);
+    console.error("Generate Inspiration Error:", error);
     return null;
   }
 };

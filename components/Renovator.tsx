@@ -34,8 +34,12 @@ const Renovator: React.FC = () => {
   const [selectedFinish, setSelectedFinish] = useState('vitrification-mat');
   const [imgLoadError, setImgLoadError] = useState(false);
   
+  // Dimensions for correct image masking
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visualizerRef = useRef<HTMLDivElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (imagePreview && visualizerRef.current) {
@@ -44,6 +48,26 @@ const Renovator: React.FC = () => {
         }, 100);
     }
   }, [imagePreview]);
+
+  // Track container size for comparison slider
+  useEffect(() => {
+    if (!imageContainerRef.current) return;
+    
+    const updateDimensions = () => {
+        if (imageContainerRef.current) {
+            const { width, height } = imageContainerRef.current.getBoundingClientRect();
+            setContainerDimensions({ width, height });
+        }
+    };
+
+    // Initial measure
+    updateDimensions();
+
+    const observer = new ResizeObserver(updateDimensions);
+    observer.observe(imageContainerRef.current);
+
+    return () => observer.disconnect();
+  }, [processedImage, imagePreview]);
 
   // Cleanup blob URLs for preview (input only)
   useEffect(() => {
@@ -79,6 +103,17 @@ const Renovator: React.FC = () => {
   const handleProcess = async (finishType = selectedFinish) => {
     if (!imagePreview) return;
     if (!fileRef.current) {
+      // If it's an example (no file), we simulate a process or block
+      if (imagePreview.startsWith('http')) {
+         // Just unlock it for demo purposes if it's an example
+         setIsProcessing(true);
+         setTimeout(() => {
+            setProcessedImage(imagePreview); // Examples are already renovated, just show same image as after for demo
+            setIsLocked(true);
+            setIsProcessing(false);
+         }, 1000);
+         return;
+      }
       setError("Veuillez télécharger votre propre photo pour lancer une simulation.");
       return;
     }
@@ -144,6 +179,14 @@ const Renovator: React.FC = () => {
     setImgLoadError(false);
     fileRef.current = null;
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSliderMove = (clientX: number) => {
+    if (imageContainerRef.current) {
+        const rect = imageContainerRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+        setSliderPosition((x / rect.width) * 100);
+    }
   };
 
   return (
@@ -262,63 +305,53 @@ const Renovator: React.FC = () => {
 
                         {/* VISUALIZER STAGE */}
                         {!processedImage ? (
-                            <img src={imagePreview} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
+                            <div className="relative w-full h-full">
+                                <img src={imagePreview} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
+                            </div>
                         ) : (
-                        <div className="relative w-full h-full select-none touch-none bg-gray-100"
-                            style={{ isolation: 'isolate' }}
-                            onMouseMove={(e) => {
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-                                setSliderPosition((x / rect.width) * 100);
-                            }}
+                        <div 
+                            className="relative w-full h-full select-none touch-none bg-gray-100 cursor-ew-resize"
+                            ref={imageContainerRef}
+                            onMouseMove={(e) => handleSliderMove(e.clientX)}
                             onTouchMove={(e) => {
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const x = Math.max(0, Math.min(e.touches[0].clientX - rect.left, rect.width));
-                                setSliderPosition((x / rect.width) * 100);
+                                handleSliderMove(e.touches[0].clientX);
                             }}
                         >
-                            {/* AFTER (Background) - MOBILE FIXES */}
-                            <div className="absolute inset-0 w-full h-full" style={{ 
-                                transform: 'translate3d(0,0,0)', // Force GPU
-                                WebkitTransform: 'translate3d(0,0,0)' 
-                            }}>
-                                <img 
-                                    key={processedImage} // Force re-mount
-                                    src={processedImage} 
-                                    alt="After" 
-                                    decoding="sync" // Sync is safer for immediate paint on iOS
-                                    loading="eager"
-                                    onError={() => setImgLoadError(true)}
-                                    className="w-full h-full object-cover block"
-                                />
-                            </div>
+                            {/* 1. BOTTOM LAYER: The Renovated Image (Full) */}
+                            <img 
+                                src={processedImage} 
+                                alt="Renovated" 
+                                decoding="sync"
+                                onError={() => setImgLoadError(true)}
+                                className="absolute inset-0 w-full h-full object-cover"
+                            />
+                            <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-3 py-1 rounded-full text-xs font-bold shadow-md z-10 pointer-events-none">APRÈS</div>
                             
-                            {/* BEFORE (Foreground) */}
+                            {/* 2. TOP LAYER: The Original Image (Masked by Width) */}
                             <div 
-                                className="absolute inset-0 w-full h-full overflow-hidden"
-                                style={{ 
-                                    clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
-                                    WebkitClipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
-                                    transform: 'translate3d(0,0,0)',
-                                    WebkitTransform: 'translate3d(0,0,0)',
-                                    zIndex: 10
-                                }}
+                                className="absolute top-0 left-0 h-full overflow-hidden border-r-[3px] border-white shadow-[2px_0_15px_rgba(0,0,0,0.2)] z-20"
+                                style={{ width: `${sliderPosition}%`, willChange: 'width' }}
                             >
+                                {/* IMPORTANT: Inner image must have static full width of parent to avoid squishing */}
                                 <img 
                                     src={imagePreview} 
-                                    alt="Before" 
-                                    className="w-full h-full object-cover grayscale brightness-90 block" 
+                                    alt="Original" 
+                                    className="absolute top-0 left-0 max-w-none object-cover"
+                                    style={{ 
+                                        width: containerDimensions.width || '100%', 
+                                        height: '100%' 
+                                    }} 
                                 />
-                                <div className="absolute top-6 left-6 bg-black/50 text-white px-3 py-1 rounded-full text-xs font-bold">AVANT</div>
+                                <div className="absolute top-6 left-6 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md backdrop-blur-sm pointer-events-none">AVANT</div>
                             </div>
                             
-                            {/* Slider Handle */}
+                            {/* 3. SLIDER HANDLE */}
                             <div 
-                                className="absolute top-0 bottom-0 w-1 bg-white z-20 pointer-events-none shadow-lg"
+                                className="absolute top-0 bottom-0 w-12 -ml-6 z-30 flex items-center justify-center pointer-events-none"
                                 style={{ left: `${sliderPosition}%` }}
                             >
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-xl border-2 border-gray-100">
-                                    <MoveHorizontal size={16} className="text-brand-dark" />
+                                <div className="w-11 h-11 bg-white rounded-full shadow-xl flex items-center justify-center border-[3px] border-white/50 backdrop-blur-sm">
+                                    <MoveHorizontal size={20} className="text-brand-dark opacity-80" />
                                 </div>
                             </div>
                         </div>
@@ -328,7 +361,7 @@ const Renovator: React.FC = () => {
 
                   {/* Sidebar */}
                   <div className="w-full md:w-1/4 bg-white border-l border-gray-100 flex flex-col z-10">
-                      {!isLocked && processedImage && !error ? (
+                      {processedImage && !error ? (
                           <div className="p-4 space-y-4">
                              <div className="space-y-2">
                                 {[
@@ -351,9 +384,33 @@ const Renovator: React.FC = () => {
                              <button onClick={() => document.getElementById('calculator')?.scrollIntoView({ behavior: 'smooth' })} className="w-full bg-brand-dark text-white p-4 rounded-xl font-bold shadow-lg">ESTIMER CE RENDU</button>
                           </div>
                       ) : (
-                        <div className="hidden md:flex p-6 h-full justify-center items-center text-center text-gray-400 text-sm">
-                            {!isProcessing && "Importez une photo pour commencer."}
-                        </div>
+                         /* SHOW BUTTON WHEN IMAGE IS READY BUT NOT PROCESSED */
+                         <div className="p-6 flex flex-col h-full justify-center items-center text-center space-y-6">
+                            {isProcessing ? (
+                                <>
+                                    <Sparkles className="w-12 h-12 text-action-orange animate-spin" />
+                                    <p className="font-bold text-brand-dark">Analyse en cours...</p>
+                                    <p className="text-xs text-gray-500">Cela prend environ 5 à 10 secondes</p>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-14 h-14 bg-orange-50 rounded-full flex items-center justify-center mb-2 animate-bounce">
+                                        <Sparkles className="w-8 h-8 text-action-orange" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-brand-dark text-lg">Photo Prête !</h3>
+                                        <p className="text-sm text-gray-500 mt-1">Cliquez ci-dessous pour lancer la rénovation par IA.</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleProcess()}
+                                        className="w-full py-4 bg-action-orange text-white font-bold rounded-xl shadow-xl hover:bg-action-hover transition-all flex items-center justify-center gap-2 group transform hover:scale-[1.02]"
+                                    >
+                                        <Sparkles size={20} className="group-hover:rotate-12 transition-transform" />
+                                        LANCER L'IA
+                                    </button>
+                                </>
+                            )}
+                         </div>
                       )}
                   </div>
               </div>
