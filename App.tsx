@@ -70,13 +70,9 @@ const App: React.FC = () => {
         <div className="container mx-auto px-4 h-20 flex justify-between items-center">
           
           {/* Logo */}
-          <div className="flex flex-col cursor-pointer z-50 group select-none" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <span className="font-sans font-black text-2xl md:text-3xl leading-none tracking-tighter text-brand-dark group-hover:scale-[1.02] transition-transform duration-300">
-              LE PARQUET
-            </span>
-            <span className="font-sans text-[10px] md:text-xs font-bold tracking-[0.4em] text-action-orange uppercase pl-1">
-              PARISIEN
-            </span>
+          <div className="flex flex-col cursor-pointer z-50" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <span className="font-sans font-bold text-lg leading-none tracking-tight text-brand-dark">LE PARQUET</span>
+            <span className="font-sans text-xs tracking-[0.2em] text-gray-500 uppercase">Parisien</span>
           </div>
 
           {/* Desktop Navigation */}
@@ -116,8 +112,8 @@ const App: React.FC = () => {
                    {/* Header */}
                    <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                       <div className="flex flex-col leading-none">
-                         <span className="font-black text-xl text-brand-dark tracking-tighter">LE PARQUET</span>
-                         <span className="text-[10px] font-bold tracking-[0.4em] text-action-orange uppercase pl-0.5">PARISIEN</span>
+                         <span className="font-bold text-xs text-brand-dark">LE PARQUET</span>
+                         <span className="text-[8px] tracking-widest text-gray-500 uppercase">Parisien</span>
                       </div>
                       <button 
                         onClick={() => setMobileMenuOpen(false)} 
@@ -219,9 +215,9 @@ const App: React.FC = () => {
       <footer className="bg-brand-dark text-white py-12 text-sm border-t-4 border-action-orange font-sans">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <div className="flex flex-col mb-4 select-none">
-               <span className="font-sans font-black text-3xl leading-none tracking-tighter text-white">LE PARQUET</span>
-               <span className="font-sans text-xs font-bold tracking-[0.4em] text-action-orange uppercase pl-1">PARISIEN</span>
+            <div className="flex flex-col mb-4">
+               <span className="font-sans font-bold text-lg leading-none tracking-tight text-white">LE PARQUET</span>
+               <span className="font-sans text-xs tracking-[0.2em] text-gray-400 uppercase">Parisien</span>
             </div>
             <p className="text-gray-500 mb-4">Intervention rapide 7j/7 dans tout Paris et Île-de-France.</p>
           </div>
