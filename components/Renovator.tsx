@@ -27,7 +27,7 @@ const Renovator: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileRef = useRef<File | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
-  const [imageReadyToDisplay, setImageReadyToDisplay] = useState(false); // New state for preload
+  const [imageReadyToDisplay, setImageReadyToDisplay] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,14 +35,11 @@ const Renovator: React.FC = () => {
   const [selectedFinish, setSelectedFinish] = useState('vitrification-mat');
   const [imgLoadError, setImgLoadError] = useState(false);
   
-  // Dimensions for correct image masking (replaces clip-path)
-  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visualizerRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll
+  // Auto-scroll to visualizer when image is set
   useEffect(() => {
     if (imagePreview && visualizerRef.current) {
         setTimeout(() => {
@@ -51,9 +48,7 @@ const Renovator: React.FC = () => {
     }
   }, [imagePreview]);
 
-  // IMAGE PRELOADER LOGIC:
-  // When processedImage changes, we must wait for the browser to decode it
-  // before we try to render it in the complex slider structure.
+  // IMAGE PRELOADER LOGIC
   useEffect(() => {
     if (!processedImage) {
       setImageReadyToDisplay(false);
@@ -65,7 +60,6 @@ const Renovator: React.FC = () => {
 
     const img = new Image();
     img.onload = () => {
-      // Image is decoded and ready in memory
       setImageReadyToDisplay(true);
       if (!isLocked) setIsLocked(true);
     };
@@ -76,37 +70,9 @@ const Renovator: React.FC = () => {
     };
     img.src = processedImage;
 
-    // Optional: Pre-decode if supported
-    if (img.decode) {
-        img.decode().catch((err) => {
-             console.warn("Image decode failed", err);
-             // We still try to let onload handle it, or fail
-        });
-    }
-
   }, [processedImage]);
 
-  // Track container size for comparison slider
-  useEffect(() => {
-    if (!imageContainerRef.current) return;
-    
-    const updateDimensions = () => {
-        if (imageContainerRef.current) {
-            const { width, height } = imageContainerRef.current.getBoundingClientRect();
-            if (width > 0 && height > 0) {
-                 setContainerDimensions({ width, height });
-            }
-        }
-    };
-
-    updateDimensions();
-    const observer = new ResizeObserver(updateDimensions);
-    observer.observe(imageContainerRef.current);
-
-    return () => observer.disconnect();
-  }, [imageReadyToDisplay, imagePreview]);
-
-  // Clean up blob URLs
+  // Clean up blob URLs on unmount
   useEffect(() => {
     return () => {
         if (imagePreview && imagePreview.startsWith('blob:')) {
@@ -160,7 +126,7 @@ const Renovator: React.FC = () => {
       if (imagePreview.startsWith('http')) {
          setIsProcessing(true);
          setTimeout(() => {
-            setProcessedImage(imagePreview); // Examples just reuse the image for demo
+            setProcessedImage(imagePreview);
             setIsProcessing(false);
          }, 1500);
          return;
@@ -193,12 +159,10 @@ const Renovator: React.FC = () => {
       clearTimeout(failsafeTimer);
 
       if (resultUrl) {
-        // Cleanup old result
         if (processedImage && processedImage.startsWith('blob:')) {
             URL.revokeObjectURL(processedImage);
         }
         setProcessedImage(resultUrl); 
-        // Note: isLocked is set in the useEffect once image is ready
         setError(null);
       } else {
         setError("La rénovation a échoué. Veuillez réessayer.");
@@ -415,7 +379,7 @@ const Renovator: React.FC = () => {
                             </div>
                         )}
 
-                        {/* VISUALIZER - REPLACED CLIP-PATH WITH NESTED DIV MASKING */}
+                        {/* VISUALIZER - MOBILE ROBUST VERSION (CLIP PATH) */}
                         {!imageReadyToDisplay ? (
                         <>
                             <img src={imagePreview || undefined} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
@@ -440,9 +404,7 @@ const Renovator: React.FC = () => {
                             }}
                             style={{
                                 transform: 'translateZ(0)',
-                                backfaceVisibility: 'hidden',
-                                WebkitBackfaceVisibility: 'hidden',
-                                WebkitTransform: 'translateZ(0)'
+                                WebkitTransform: 'translateZ(0)',
                             }}
                         >
                             {/* 1. BOTTOM LAYER: The Renovated Image (Full) */}
@@ -450,33 +412,34 @@ const Renovator: React.FC = () => {
                                 src={processedImage || undefined} 
                                 alt="Renovated" 
                                 className="absolute inset-0 w-full h-full object-cover"
+                                draggable={false}
                             />
                             <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-3 py-1 rounded-full text-xs font-bold shadow-md z-10 pointer-events-none">APRÈS</div>
                             
-                            {/* 2. TOP LAYER: The Original Image (Masked by Width) */}
+                            {/* 2. TOP LAYER: The Original Image (Masked by Clip Path) */}
+                            {/* Using clip-path is much more robust on mobile than nested divs with specific widths */}
                             <div 
-                                className="absolute top-0 left-0 h-full overflow-hidden border-r-[3px] border-white shadow-[2px_0_15px_rgba(0,0,0,0.2)] z-20"
-                                style={{ width: `${sliderPosition}%`, willChange: 'width' }}
+                                className="absolute inset-0 z-20"
+                                style={{ 
+                                    clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
+                                    WebkitClipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
+                                }}
                             >
-                                {/* IMPORTANT: Inner image must have static full width of parent to avoid squishing */}
                                 <img 
                                     src={imagePreview || undefined} 
                                     alt="Original" 
-                                    className="absolute top-0 left-0 max-w-none object-cover"
-                                    style={{ 
-                                        width: containerDimensions.width || '100%', 
-                                        height: '100%',
-                                    }} 
+                                    className="w-full h-full object-cover"
+                                    draggable={false}
                                 />
                                 <div className="absolute top-6 left-6 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md backdrop-blur-sm pointer-events-none">AVANT</div>
                             </div>
                             
                             {/* 3. SLIDER HANDLE */}
                             <div 
-                                className="absolute top-0 bottom-0 w-12 -ml-6 z-30 flex items-center justify-center pointer-events-none"
+                                className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-30 shadow-[0_0_10px_rgba(0,0,0,0.3)]"
                                 style={{ left: `${sliderPosition}%` }}
                             >
-                                <div className="w-11 h-11 bg-white rounded-full shadow-xl flex items-center justify-center border-[3px] border-white/50 backdrop-blur-sm">
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 bg-white rounded-full shadow-xl flex items-center justify-center border-[3px] border-white/50 backdrop-blur-sm">
                                     <MoveHorizontal size={20} className="text-brand-dark opacity-80" />
                                 </div>
                             </div>

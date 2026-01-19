@@ -1,9 +1,8 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { CalculationResult } from '../types';
 
-// STRICT ENV VAR HANDLING: Ensure API_KEY is a string for the SDK constructor.
-const API_KEY = (process.env.API_KEY as string) || '';
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// STRICT ENV VAR HANDLING: Use process.env.API_KEY directly as per guidelines.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const CHAT_MODEL = 'gemini-3-pro-preview';
 const RENOVATE_MODEL = 'gemini-2.5-flash-image';
@@ -182,7 +181,7 @@ const bookAppointmentTool: FunctionDeclaration = {
 };
 
 export const sendChatMessage = async (history: { role: string, parts: { text: string }[] }[], newMessage: string) => {
-  if (!API_KEY) return "Mode démo: Veuillez configurer votre clé API.";
+  if (!process.env.API_KEY) return "Mode démo: Veuillez configurer votre clé API.";
 
   try {
     const chat = ai.chats.create({
@@ -233,7 +232,7 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
     if (!blob) throw new Error("Erreur lors de la préparation de l'image.");
 
     // --- SAFE DEMO MODE ---
-    if (!API_KEY) {
+    if (!process.env.API_KEY) {
       console.warn("⚠️ [GEMINI] No API Key found. Running in DEMO MODE.");
       await new Promise(r => setTimeout(r, 1500));
       // Just return the input image as BLOB URL in demo mode
@@ -314,7 +313,7 @@ CRITICAL INSTRUCTIONS:
 };
 
 export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4K'): Promise<string | null> => {
-  if (!API_KEY) return null;
+  if (!process.env.API_KEY) return null;
 
   try {
     const response = await ai.models.generateContent({
