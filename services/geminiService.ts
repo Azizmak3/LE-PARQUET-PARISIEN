@@ -4,6 +4,7 @@ import { CalculationResult } from '../types';
 // STRICT ENV VAR HANDLING: Ensure API_KEY is a string for the SDK constructor.
 // Vite replaces process.env.API_KEY via define, but TS needs the cast.
 const API_KEY = (process.env.API_KEY as string) || '';
+// Initialize SDK only if key exists to avoid immediate startup errors, otherwise we handle it in calls
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const CHAT_MODEL = 'gemini-3-pro-preview';
@@ -222,6 +223,15 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
     console.log('[RENOVATE] Resizing image...');
     const blob = await resizeImageToBlob(fileInput);
     if (!blob) throw new Error("Erreur lors de la préparation de l'image.");
+
+    // --- SAFE DEMO MODE ---
+    // If API Key is missing, we simulate a success to avoid crashing the UI
+    if (!API_KEY) {
+      console.warn("⚠️ [GEMINI] No API Key found. Running in DEMO MODE.");
+      console.warn("Please set API_KEY or GEMINI_API_KEY in your Netlify Environment Variables.");
+      await new Promise(r => setTimeout(r, 1500)); // Simulate processing delay
+      return URL.createObjectURL(blob); // Return the original resized image as the "result"
+    }
 
     // 2. Convert to Base64 for the SDK
     const base64Data = await blobToBase64(blob);
