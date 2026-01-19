@@ -23,6 +23,24 @@ const EXAMPLES = [
   }
 ];
 
+// UTILITY: Convert Base64 DataURL to Blob for optimized rendering
+const dataURItoBlob = (dataURI: string): Blob => {
+  try {
+    const splitData = dataURI.split(',');
+    const byteString = atob(splitData[1]);
+    const mimeString = splitData[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+  } catch (e) {
+    console.error("Error converting data URI to Blob", e);
+    throw e;
+  }
+};
+
 const Renovator: React.FC = () => {
   const [image, setImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
@@ -34,10 +52,18 @@ const Renovator: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visualizerRef = useRef<HTMLDivElement>(null);
 
+  // MEMORY MANAGEMENT: Revoke Blob URL when component unmounts or image changes
+  useEffect(() => {
+    return () => {
+      if (processedImage && processedImage.startsWith('blob:')) {
+        URL.revokeObjectURL(processedImage);
+      }
+    };
+  }, [processedImage]);
+
   // Auto-scroll to visualizer when image is loaded
   useEffect(() => {
     if (image && visualizerRef.current) {
-        // Small delay to ensure render is complete
         setTimeout(() => {
             visualizerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
@@ -89,19 +115,26 @@ const Renovator: React.FC = () => {
             break;
     }
 
-    // Pass the full Data URL image string to the service
-    const result = await renovateImage(image, prompt);
-    
-    setIsProcessing(false);
-    
-    if (result) {
-        setProcessedImage(result);
-        // Only lock on the very first generation to capture lead
-        if (!processedImage) {
-            setIsLocked(true);
+    try {
+        const resultDataUrl = await renovateImage(image, prompt);
+        
+        if (resultDataUrl) {
+            // CONVERT TO BLOB URL to fix mobile rendering issues
+            const blob = dataURItoBlob(resultDataUrl);
+            const objectUrl = URL.createObjectURL(blob);
+            setProcessedImage(objectUrl);
+            
+            if (!processedImage) {
+                setIsLocked(true);
+            }
+        } else {
+            setError("La rénovation a échoué. Veuillez réessayer.");
         }
-    } else {
-        setError("La rénovation a échoué. Veuillez réessayer.");
+    } catch (err) {
+        console.error("Processing failed", err);
+        setError("Erreur technique lors de la génération. Réessayez.");
+    } finally {
+        setIsProcessing(false);
     }
   };
 
@@ -134,7 +167,6 @@ const Renovator: React.FC = () => {
     setImage(null);
     setProcessedImage(null);
     setError(null);
-    // Reset file input so same file can be selected again
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -172,7 +204,6 @@ const Renovator: React.FC = () => {
                             Sélectionner un fichier
                         </button>
                     </div>
-                    {/* Important: Reset value on click to allow re-uploading same file if needed */}
                     <input 
                         ref={fileInputRef} 
                         type="file" 
@@ -190,7 +221,6 @@ const Renovator: React.FC = () => {
                         <h3 className="font-bold text-brand-dark text-lg">Pas de photo ? Essayez :</h3>
                     </div>
                     
-                    {/* Horizontal scroll on mobile */}
                     <div className="flex overflow-x-auto gap-4 md:grid md:gap-4 snap-x snap-mandatory -mx-6 px-6 md:mx-0 md:px-0 pb-4 md:pb-0 no-scrollbar">
                         {EXAMPLES.map((ex) => (
                             <button 
@@ -225,7 +255,7 @@ const Renovator: React.FC = () => {
               
               <div className="flex flex-col md:flex-row h-full items-stretch">
                   <div className="w-full md:w-3/4 flex flex-col">
-                    {/* Feature 2: AI Analysis Card (Visible when processing or done) */}
+                    {/* Feature 2: AI Analysis Card */}
                     {processedImage && !isLocked && (
                         <div className="bg-orange-50/50 border-b border-orange-100 p-4 flex flex-wrap gap-4 items-center justify-between shrink-0 animate-fade-in">
                             <div className="flex items-center gap-2 text-action-orange font-bold text-sm">
@@ -286,7 +316,7 @@ const Renovator: React.FC = () => {
                         </div>
                         )}
 
-                        {/* LOCKED STATE (LEAD MAGNET) - HARD GATE */}
+                        {/* LOCKED STATE */}
                         {isLocked && processedImage && (
                             <div className="absolute inset-0 z-40 backdrop-blur-xl bg-white/40 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
                                 <div className="bg-white p-6 md:p-10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] max-w-md w-full border border-gray-100 transform scale-100 hover:scale-[1.02] transition-transform duration-300">
@@ -316,7 +346,7 @@ const Renovator: React.FC = () => {
                         {/* VISUALIZER */}
                         {!processedImage ? (
                         <>
-                            <img src={image} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
+                            <img src={image} alt="Original" className="absolute inset-0 w-full h-full object-cover block" />
                             {/* MOBILE OVERLAY CTA FOR PROCESSING */}
                             <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent flex justify-center md:hidden pb-8">
                                 <button 
@@ -329,7 +359,7 @@ const Renovator: React.FC = () => {
                             </div>
                         </>
                         ) : (
-                        <div className="relative w-full h-full select-none cursor-ew-resize"
+                        <div className="relative w-full h-full select-none cursor-ew-resize touch-none"
                             onMouseMove={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
                                 const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
@@ -341,25 +371,35 @@ const Renovator: React.FC = () => {
                                 setSliderPosition((x / rect.width) * 100);
                             }}
                         >
+                            {/* AFTER IMAGE (Bottom Layer) */}
                             <div className="absolute inset-0 w-full h-full">
-                            <img src={processedImage} alt="After" className="w-full h-full object-cover filter brightness-110 saturate-125 contrast-110" />
+                                <img 
+                                    src={processedImage} 
+                                    alt="After" 
+                                    className="w-full h-full object-cover filter brightness-110 saturate-125 contrast-110 block" 
+                                    onError={() => setError("Impossible d'afficher l'image.")}
+                                />
                             </div>
+
+                            {/* BEFORE IMAGE (Top Layer with Clip) */}
                             <div 
-                            className="absolute inset-0 w-full h-full overflow-hidden"
-                            style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+                                className="absolute inset-0 w-full h-full overflow-hidden"
+                                style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
                             >
-                            <img src={image} alt="Before" className="w-full h-full object-cover grayscale brightness-90" />
-                            <div className="absolute top-6 left-6 bg-black/50 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg border border-white/10">AVANT</div>
+                                <img src={image} alt="Before" className="w-full h-full object-cover grayscale brightness-90 block" />
+                                <div className="absolute top-6 left-6 bg-black/50 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg border border-white/10 z-10">AVANT</div>
                             </div>
-                            <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg">APRÈS</div>
                             
+                            <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg z-10">APRÈS</div>
+                            
+                            {/* SLIDER HANDLE */}
                             <div 
-                            className="absolute top-0 bottom-0 w-1 bg-white z-20 shadow-[0_0_20px_rgba(0,0,0,0.3)] pointer-events-none"
-                            style={{ left: `${sliderPosition}%` }}
+                                className="absolute top-0 bottom-0 w-1 bg-white z-20 shadow-[0_0_20px_rgba(0,0,0,0.3)] pointer-events-none"
+                                style={{ left: `${sliderPosition}%` }}
                             >
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xl border-4 border-white/50">
-                                <MoveHorizontal size={20} className="text-brand-dark" />
-                            </div>
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xl border-4 border-white/50">
+                                    <MoveHorizontal size={20} className="text-brand-dark" />
+                                </div>
                             </div>
                         </div>
                         )}
@@ -370,8 +410,6 @@ const Renovator: React.FC = () => {
                   <div className="w-full md:w-1/4 bg-white border-l border-gray-100 flex flex-col z-10">
                       {!isLocked && processedImage ? (
                           <div className="p-4 md:p-6 space-y-6 h-full flex flex-col">
-                             
-                             {/* Feature 1: Finish Selector */}
                              <div>
                                 <h3 className="font-bold text-sm mb-3 text-brand-dark">Essayez différentes finitions :</h3>
                                 <div className="space-y-2">
@@ -401,7 +439,6 @@ const Renovator: React.FC = () => {
                                 </div>
                              </div>
 
-                             {/* Feature 3: Download & Email */}
                              <div className="grid grid-cols-2 gap-2 mt-auto">
                                 <button onClick={handleDownload} className="flex flex-col items-center justify-center gap-1 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-xs font-bold text-gray-600 active:scale-95 transition-transform">
                                     <Download size={16} /> Télécharger
@@ -419,7 +456,6 @@ const Renovator: React.FC = () => {
                              </button>
                           </div>
                       ) : (
-                        // Default Upload State CTA - DESKTOP ONLY
                         <div className="hidden md:flex p-6 flex-col h-full justify-center items-center text-center">
                             {!isProcessing && (
                                 <>

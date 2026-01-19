@@ -8,6 +8,52 @@ const CHAT_MODEL = 'gemini-3-pro-preview';
 const EDIT_MODEL = 'gemini-2.5-flash-image';
 const GEN_MODEL = 'gemini-3-pro-image-preview';
 
+// --- UTILS ---
+
+/**
+ * Resizes and compresses an image client-side to avoid sending massive payloads.
+ * Target: Max 1024px width/height, JPEG 0.75 quality.
+ */
+const resizeImage = (dataUrl: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      // Calculate new dimensions (Max 1024px)
+      const MAX_SIZE = 1024;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height = Math.round((height * MAX_SIZE) / width);
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width = Math.round((width * MAX_SIZE) / height);
+          height = MAX_SIZE;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        resolve(dataUrl); // Fallback to original if canvas fails
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      // Return as JPEG with 0.75 quality to save bandwidth/memory
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = () => resolve(dataUrl); // Fallback on error
+    img.src = dataUrl;
+  });
+};
+
 // --- ESTIMATION LOGIC ---
 export const calculateEstimate = async (
   type: string,
@@ -140,18 +186,22 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
 
 export const renovateImage = async (base64Image: string, promptText: string): Promise<string | null> => {
   try {
-    // 1. Parse Input: Handle both raw base64 and Data URL (data:image/jpeg;base64,...)
-    let mimeType = 'image/jpeg';
-    let cleanBase64 = base64Image;
+    // 1. OPTIMIZE: Resize image client-side before processing
+    // This prevents "Payload Too Large" and reduces Mobile RAM usage significantly.
+    const resizedImage = await resizeImage(base64Image);
 
-    if (base64Image.includes(';base64,')) {
-        const parts = base64Image.split(';base64,');
+    // 2. Parse Input: Handle both raw base64 and Data URL (data:image/jpeg;base64,...)
+    let mimeType = 'image/jpeg';
+    let cleanBase64 = resizedImage;
+
+    if (resizedImage.includes(';base64,')) {
+        const parts = resizedImage.split(';base64,');
         // parts[0] is "data:image/jpeg"
         mimeType = parts[0].replace('data:', '');
         cleanBase64 = parts[1];
     }
 
-    // 2. Call Netlify Function
+    // 3. Call Netlify Function
     const response = await fetch('/.netlify/functions/gemini-image', {
         method: 'POST',
         headers: {
@@ -170,7 +220,7 @@ export const renovateImage = async (base64Image: string, promptText: string): Pr
 
     const data = await response.json();
     
-    // 3. Reconstruct Data URL from response
+    // 4. Reconstruct Data URL from response
     if (data.imageBase64) {
       // Use mimeType from response or fallback to input type
       const outMime = data.mimeType || mimeType;
