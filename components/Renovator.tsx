@@ -37,7 +37,6 @@ const Renovator: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visualizerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll
   useEffect(() => {
     if (imagePreview && visualizerRef.current) {
         setTimeout(() => {
@@ -46,7 +45,7 @@ const Renovator: React.FC = () => {
     }
   }, [imagePreview]);
 
-  // Clean up blob URLs (only for input preview, processed is now Data URL)
+  // Cleanup blob URLs for preview (input only)
   useEffect(() => {
     return () => {
         if (imagePreview && imagePreview.startsWith('blob:')) {
@@ -55,60 +54,32 @@ const Renovator: React.FC = () => {
     };
   }, [imagePreview]);
 
-  // Force image preloading when processedImage is set to catch errors early
-  useEffect(() => {
-    if (processedImage) {
-      setImgLoadError(false);
-      const img = new Image();
-      img.onload = () => console.log('[RENOVATOR] Processed Data URL preloaded successfully');
-      img.onerror = () => {
-          console.error('[RENOVATOR] Failed to load processed Data URL');
-          setImgLoadError(true);
-      };
-      img.src = processedImage;
-    }
-  }, [processedImage]);
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      console.log('[UPLOAD] File selected:', file.name, file.size, 'bytes');
       fileRef.current = file;
-      
-      // Use Blob URL for preview (input side is fine with blobs usually)
       const objectUrl = URL.createObjectURL(file);
       setImagePreview(objectUrl);
-      
       setProcessedImage(null);
       setIsLocked(false);
       setError(null);
       setImgLoadError(false);
-      setSelectedFinish('vitrification-mat');
     }
   };
 
   const handleSelectExample = async (src: string) => {
-    console.log('[EXAMPLE] Selected:', src);
     setImagePreview(src);
     fileRef.current = null; 
     setProcessedImage(null);
     setIsLocked(false);
     setError(null);
     setImgLoadError(false);
-    setSelectedFinish('vitrification-mat');
   };
 
   const handleProcess = async (finishType = selectedFinish) => {
-    console.log('[PROCESS] Starting with finish:', finishType);
-    
-    if (!imagePreview) {
-      console.warn('[PROCESS] No image preview');
-      return;
-    }
-    
+    if (!imagePreview) return;
     if (!fileRef.current) {
       setError("Veuillez télécharger votre propre photo pour lancer une simulation.");
-      console.warn('[PROCESS] No file uploaded, cannot process example');
       return;
     }
 
@@ -116,66 +87,39 @@ const Renovator: React.FC = () => {
     setError(null);
     setImgLoadError(false);
 
-    // CRITICAL: Failsafe timer to FORCE spinner stop
     const failsafeTimer = setTimeout(() => {
-      console.error('[PROCESS] FAILSAFE TRIGGERED - forcing spinner stop');
       if (isProcessing) {
         setIsProcessing(false);
-        if (!processedImage) {
-          setError("Le serveur met trop de temps à répondre. Veuillez réessayer.");
-        }
+        if (!processedImage) setError("Le serveur met trop de temps à répondre.");
       }
-    }, 90000); 
+    }, 60000); 
     
     try {
-      // Build prompt based on finish type
-      let prompt = "Rénove ce parquet pour qu'il soit neuf et brillant. Style haussmannien moderne.";
-      switch (finishType) {
-        case 'vitrification-mat':
-          prompt = "Rénovation parquet finition vitrification mat naturel, aspect bois brut, élégant, haute qualité, photorealistic floor renovation.";
-          break;
-        case 'vitrification-brillant':
-          prompt = "Rénovation parquet finition vitrification brillante, haute brillance, reflectif, luxueux, miroir, photorealistic shiny floor.";
-          break;
-        case 'huilage':
-          prompt = "Rénovation parquet finition huilé naturel, texture bois apparente, chaleureux, authentique, photorealistic oiled wood floor.";
-          break;
-        case 'teinte-wenge':
-          prompt = "Rénovation parquet teinte wengé sombre, bois foncé, élégant, moderne, contrasté, photorealistic dark stained floor.";
-          break;
-      }
+      let prompt = "Rénovation parquet finition vitrification mat naturel, aspect bois brut.";
+      if (finishType === 'vitrification-brillant') prompt = "Rénovation parquet finition vitrification brillante, haute brillance.";
+      if (finishType === 'huilage') prompt = "Rénovation parquet finition huilé naturel, texture bois apparente.";
+      if (finishType === 'teinte-wenge') prompt = "Rénovation parquet teinte wengé sombre, bois foncé.";
 
-      console.log('[PROCESS] Calling renovateImage with prompt:', prompt);
-
-      // Call the service - now returns a Data URL string
+      // Returns Data URL string
       const result = await renovateImage(fileRef.current, prompt);
       
       clearTimeout(failsafeTimer);
 
       if (result) {
-        console.log('[PROCESS] SUCCESS - got result length:', result.length);
         setProcessedImage(result); 
-        if (!processedImage) {
-          setIsLocked(true); // Lock only on first successful generation
-        }
-        setError(null);
+        if (!processedImage) setIsLocked(true);
       } else {
-        console.error('[PROCESS] renovateImage returned null');
-        setError("La rénovation a échoué. Veuillez réessayer.");
+        setError("La rénovation a échoué.");
       }
-
     } catch (err: any) {
       clearTimeout(failsafeTimer);
-      console.error('[PROCESS] Caught error:', err);
-      setError(err.message || "Une erreur inattendue est survenue.");
+      setError(err.message || "Erreur inattendue.");
     } finally {
-      console.log('[PROCESS] Finally block - stopping spinner');
       setIsProcessing(false);
     }
   };
 
   const handleFinishChange = async (finishId: string) => {
-    console.log('[FINISH] Changing to:', finishId);
     setSelectedFinish(finishId);
     await handleProcess(finishId);
   };
@@ -184,24 +128,14 @@ const Renovator: React.FC = () => {
     if (!processedImage) return;
     const link = document.createElement('a');
     link.href = processedImage;
-    link.download = `parquet-renove-${selectedFinish}-${Date.now()}.jpg`;
+    link.download = `parquet-renove-${Date.now()}.jpg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const handleEmail = () => {
-    const email = prompt('Entrez votre email pour recevoir la simulation HD :');
-    if (!email) return;
-    alert(`✓ Visualisation HD envoyée à ${email} !`);
-  };
-
   const resetUpload = () => {
-    console.log('[RESET] Resetting upload');
-    // Cleanup old preview if it was a blob
-    if (imagePreview && imagePreview.startsWith('blob:')) {
-        URL.revokeObjectURL(imagePreview);
-    }
+    if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
     setProcessedImage(null);
     setError(null);
@@ -222,7 +156,7 @@ const Renovator: React.FC = () => {
             <h2 className="text-3xl md:text-5xl font-sans font-bold text-brand-dark mb-4 md:mb-6 leading-tight">Visualisez votre futur parquet</h2>
             <p className="text-gray-600 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
               Ne devinez pas le résultat. Notre intelligence artificielle analyse votre pièce 
-              et génère une projection photoréaliste de votre sol rénové en 30 secondes.
+              et génère une projection photoréaliste.
             </p>
         </div>
 
@@ -277,7 +211,6 @@ const Renovator: React.FC = () => {
                                     <h4 className="font-bold text-brand-dark text-sm md:text-base group-hover:text-action-orange transition-colors">{ex.label}</h4>
                                     <p className="text-xs text-gray-500 mt-1">{ex.desc}</p>
                                 </div>
-                                <ArrowRight size={16} className="ml-auto text-gray-300 group-hover:text-action-orange transform -translate-x-2 group-hover:translate-x-0 transition-all opacity-0 group-hover:opacity-100" />
                             </button>
                         ))}
                     </div>
@@ -290,117 +223,49 @@ const Renovator: React.FC = () => {
                  <button onClick={resetUpload} disabled={isProcessing} className="text-sm font-bold text-gray-500 hover:text-brand-dark flex items-center gap-2 disabled:opacity-50">
                     ← Retour
                  </button>
-                 <div className="flex gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Mode Simulation</span>
-                 </div>
+                 <span className="text-xs font-bold uppercase text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Mode Simulation</span>
               </div>
               
               <div className="flex flex-col md:flex-row h-full items-stretch">
                   <div className="w-full md:w-3/4 flex flex-col">
-                    {processedImage && !isLocked && !error && (
-                        <div className="bg-orange-50/50 border-b border-orange-100 p-4 flex flex-wrap gap-4 items-center justify-between shrink-0 animate-fade-in">
-                            <div className="flex items-center gap-2 text-action-orange font-bold text-sm">
-                                <Scan size={18} /> Analyse IA :
-                            </div>
-                            <div className="flex gap-4 text-xs md:text-sm text-gray-600">
-                                <span className="font-bold text-green-600">Ponçage + Vitrification</span>
-                            </div>
-                            <div className="hidden md:flex items-center gap-1 text-[10px] text-gray-400 ml-auto">
-                                <CheckCircle2 size={12} className="text-green-500"/> Précision 92%
-                            </div>
-                        </div>
-                    )}
-
                     <div className="relative w-full bg-gray-100 overflow-hidden group flex-1 min-h-[350px] md:min-h-[500px]">
+                        
                         {/* ERROR STATE */}
                         {(error || imgLoadError) && (
                              <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-50 backdrop-blur-md px-4 text-center">
                                 <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-                                <h3 className="text-xl font-bold text-brand-dark mb-2">Une erreur est survenue</h3>
-                                <p className="text-gray-500 mb-6 text-sm max-w-sm">{error || "Impossible d'afficher l'image. Votre navigateur mobile peut manquer de mémoire."}</p>
-                                <div className="flex gap-3">
-                                    <button 
-                                        onClick={() => handleProcess()}
-                                        className="px-6 py-2 bg-brand-dark text-white rounded-lg font-bold shadow-lg hover:bg-black transition-colors"
-                                    >
-                                        Réessayer
-                                    </button>
-                                    <button 
-                                        onClick={resetUpload}
-                                        className="px-6 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold hover:bg-gray-200 transition-colors"
-                                    >
-                                        Changer de photo
-                                    </button>
-                                </div>
+                                <h3 className="text-xl font-bold text-brand-dark mb-2">Erreur d'affichage</h3>
+                                <p className="text-gray-500 mb-6 text-sm">{error || "Image trop lourde pour votre mobile."}</p>
+                                <button onClick={resetUpload} className="px-6 py-2 bg-brand-dark text-white rounded-lg font-bold">Réessayer</button>
                              </div>
                         )}
 
-                        {/* PROCESSING STATE */}
+                        {/* PROCESSING */}
                         {isProcessing && (
                         <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-50 backdrop-blur-md">
-                            <div className="relative">
-                                <div className="w-24 h-24 border-4 border-gray-100 rounded-full"></div>
-                                <div className="w-24 h-24 border-4 border-action-orange border-t-transparent rounded-full animate-spin absolute inset-0"></div>
-                                <Sparkles className="absolute inset-0 m-auto text-action-orange animate-pulse" />
-                            </div>
-                            <p className="text-xl md:text-2xl font-bold text-brand-dark mt-8 animate-pulse text-center px-4">L'IA rénove votre sol...</p>
-                            <p className="text-sm text-gray-400 mt-2">Cela peut prendre jusqu'à 60 secondes.</p>
-                            <div className="mt-4 text-xs text-gray-400 max-w-xs text-center">
-                                Optimisation en cours • Analyse des textures • Génération HD
-                            </div>
+                            <Sparkles className="w-12 h-12 text-action-orange animate-pulse mb-4" />
+                            <p className="text-lg font-bold text-brand-dark animate-pulse">L'IA rénove votre sol...</p>
                         </div>
                         )}
 
                         {/* LOCKED STATE */}
                         {isLocked && processedImage && !error && !imgLoadError && (
                             <div className="absolute inset-0 z-40 backdrop-blur-xl bg-white/40 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-                                <div className="bg-white p-6 md:p-10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] max-w-md w-full border border-gray-100 transform scale-100 hover:scale-[1.02] transition-transform duration-300">
-                                    <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-action-orange to-orange-400 rounded-2xl flex items-center justify-center mb-6 mx-auto shadow-lg shadow-orange-200">
-                                        <Lock className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                                    </div>
-                                    <h3 className="text-xl md:text-2xl font-bold text-brand-dark mb-2">🔒 Aperçu généré</h3>
-                                    <p className="text-gray-500 mb-6 md:mb-8 leading-relaxed text-sm md:text-base">
-                                        Débloquez le avant/après et recevez l'estimation associée.
-                                    </p>
-                                    <div className="space-y-3">
-                                        <button 
-                                            onClick={() => setIsLocked(false)} 
-                                            className="w-full bg-brand-dark hover:bg-black text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 text-sm md:text-base"
-                                        >
-                                            <CheckCircle2 size={18} />
-                                            DÉBLOQUER MON ESTIMATION
-                                        </button>
-                                    </div>
+                                <div className="bg-white p-8 rounded-3xl shadow-xl">
+                                    <Lock className="w-8 h-8 text-action-orange mx-auto mb-4" />
+                                    <button onClick={() => setIsLocked(false)} className="bg-brand-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg">
+                                        DÉBLOQUER LE RÉSULTAT
+                                    </button>
                                 </div>
                             </div>
                         )}
 
-                        {/* VISUALIZER */}
+                        {/* VISUALIZER STAGE */}
                         {!processedImage ? (
-                        <>
                             <img src={imagePreview} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
-                            <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent flex justify-center md:hidden pb-8">
-                                <button 
-                                    onClick={() => handleProcess()}
-                                    disabled={isProcessing || !fileRef.current}
-                                    className="w-full bg-action-orange text-white py-3.5 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 animate-bounce-subtle disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <Sparkles size={18} /> 
-                                    {fileRef.current ? 'LANCER L\'IA' : 'PHOTO REQUISE'}
-                                </button>
-                            </div>
-                        </>
                         ) : (
-                        <div className="relative w-full h-full select-none cursor-ew-resize touch-none bg-gray-100"
-                            style={{
-                                WebkitUserSelect: 'none',
-                                WebkitTouchCallout: 'none',
-                                transform: 'translate3d(0,0,0)', // Aggressive Hardware Acceleration
-                                WebkitTransform: 'translate3d(0,0,0)',
-                                backfaceVisibility: 'hidden',
-                                WebkitBackfaceVisibility: 'hidden',
-                                isolation: 'isolate'
-                            }}
+                        <div className="relative w-full h-full select-none touch-none bg-gray-100"
+                            style={{ isolation: 'isolate' }}
                             onMouseMove={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
                                 const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
@@ -412,25 +277,23 @@ const Renovator: React.FC = () => {
                                 setSliderPosition((x / rect.width) * 100);
                             }}
                         >
-                            {/* After Image (Background) */}
-                            <div className="absolute inset-0 w-full h-full">
+                            {/* AFTER (Background) - MOBILE FIXES */}
+                            <div className="absolute inset-0 w-full h-full" style={{ 
+                                transform: 'translate3d(0,0,0)', // Force GPU
+                                WebkitTransform: 'translate3d(0,0,0)' 
+                            }}>
                                 <img 
-                                    key={processedImage} // Force re-render on new image
+                                    key={processedImage} // Force re-mount
                                     src={processedImage} 
                                     alt="After" 
-                                    decoding="async" // Ensure async decoding before paint for mobile
+                                    decoding="sync" // Sync is safer for immediate paint on iOS
                                     loading="eager"
                                     onError={() => setImgLoadError(true)}
                                     className="w-full h-full object-cover block"
-                                    style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'cover'
-                                    }}
                                 />
                             </div>
                             
-                            {/* Before Image (Foreground with clip-path) */}
+                            {/* BEFORE (Foreground) */}
                             <div 
                                 className="absolute inset-0 w-full h-full overflow-hidden"
                                 style={{ 
@@ -438,32 +301,24 @@ const Renovator: React.FC = () => {
                                     WebkitClipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
                                     transform: 'translate3d(0,0,0)',
                                     WebkitTransform: 'translate3d(0,0,0)',
-                                    willChange: 'clip-path' // Hint to browser
+                                    zIndex: 10
                                 }}
                             >
                                 <img 
                                     src={imagePreview} 
                                     alt="Before" 
-                                    decoding="async"
-                                    loading="eager"
                                     className="w-full h-full object-cover grayscale brightness-90 block" 
-                                    style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'cover'
-                                    }}
                                 />
-                                <div className="absolute top-6 left-6 bg-black/50 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg border border-white/10">AVANT</div>
+                                <div className="absolute top-6 left-6 bg-black/50 text-white px-3 py-1 rounded-full text-xs font-bold">AVANT</div>
                             </div>
-                            <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-4 py-1.5 rounded-full text-xs font-bold tracking-widest shadow-lg">APRÈS</div>
                             
                             {/* Slider Handle */}
                             <div 
-                                className="absolute top-0 bottom-0 w-1 bg-white z-20 shadow-[0_0_20px_rgba(0,0,0,0.3)] pointer-events-none"
+                                className="absolute top-0 bottom-0 w-1 bg-white z-20 pointer-events-none shadow-lg"
                                 style={{ left: `${sliderPosition}%` }}
                             >
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xl border-4 border-white/50">
-                                    <MoveHorizontal size={20} className="text-brand-dark" />
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-xl border-2 border-gray-100">
+                                    <MoveHorizontal size={16} className="text-brand-dark" />
                                 </div>
                             </div>
                         </div>
@@ -471,82 +326,33 @@ const Renovator: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Sidebar / Controls */}
+                  {/* Sidebar */}
                   <div className="w-full md:w-1/4 bg-white border-l border-gray-100 flex flex-col z-10">
-                      {!isLocked && processedImage && !error && !imgLoadError ? (
-                          <div className="p-4 md:p-6 space-y-6 h-full flex flex-col">
-                             <div>
-                                <h3 className="font-bold text-sm mb-3 text-brand-dark">Essayez différentes finitions :</h3>
-                                <div className="space-y-2">
-                                    {[
-                                      { id: 'vitrification-mat', name: 'Vitrification Mate', icon: '🌾', desc: 'Aspect naturel' },
-                                      { id: 'vitrification-brillant', name: 'Vitrification Brillante', icon: '✨', desc: 'Éclat maximal' },
-                                      { id: 'huilage', name: 'Huilage Naturel', icon: '🪵', desc: 'Chaleur authentique' },
-                                      { id: 'teinte-wenge', name: 'Teinte Wengé', icon: '🌑', desc: 'Sombre et élégant' }
-                                    ].map(finish => (
-                                      <button
-                                        key={finish.id}
-                                        onClick={() => handleFinishChange(finish.id)}
-                                        disabled={isProcessing}
-                                        className={`w-full p-3 border rounded-xl text-left transition-all flex items-start gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${
-                                          selectedFinish === finish.id
-                                            ? 'border-action-orange bg-orange-50 ring-1 ring-action-orange'
-                                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                                        }`}
-                                      >
-                                        <span className="text-lg bg-white w-8 h-8 flex items-center justify-center rounded-full shadow-sm border border-gray-100">{finish.icon}</span>
-                                        <div>
-                                            <p className={`font-bold text-sm ${selectedFinish === finish.id ? 'text-brand-dark' : 'text-gray-600'}`}>{finish.name}</p>
-                                            <p className="text-[10px] text-gray-400">{finish.desc}</p>
-                                        </div>
-                                      </button>
-                                    ))}
-                                </div>
+                      {!isLocked && processedImage && !error ? (
+                          <div className="p-4 space-y-4">
+                             <div className="space-y-2">
+                                {[
+                                  { id: 'vitrification-mat', name: 'Vitrification Mate' },
+                                  { id: 'vitrification-brillant', name: 'Vitrification Brillante' },
+                                  { id: 'huilage', name: 'Huilage Naturel' },
+                                  { id: 'teinte-wenge', name: 'Teinte Wengé' }
+                                ].map(finish => (
+                                  <button
+                                    key={finish.id}
+                                    onClick={() => handleFinishChange(finish.id)}
+                                    disabled={isProcessing}
+                                    className={`w-full p-3 border rounded-xl text-left text-sm font-bold ${selectedFinish === finish.id ? 'bg-orange-50 border-action-orange text-brand-dark' : 'hover:bg-gray-50'}`}
+                                  >
+                                    {finish.name}
+                                  </button>
+                                ))}
                              </div>
-
-                             <div className="grid grid-cols-2 gap-2 mt-auto">
-                                <button onClick={handleDownload} className="flex flex-col items-center justify-center gap-1 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-xs font-bold text-gray-600 active:scale-95 transition-transform">
-                                    <Download size={16} /> Télécharger
-                                </button>
-                                <button onClick={handleEmail} className="flex flex-col items-center justify-center gap-1 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-xs font-bold text-gray-600 active:scale-95 transition-transform">
-                                    <Mail size={16} /> Envoyer
-                                </button>
-                             </div>
-
-                             <button 
-                                onClick={() => document.getElementById('calculator')?.scrollIntoView({ behavior: 'smooth' })}
-                                className="w-full bg-brand-dark hover:bg-black text-white py-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2"
-                             >
-                                ESTIMER CE RENDU <ArrowRight size={16} />
-                             </button>
+                             <button onClick={handleDownload} className="w-full p-3 border rounded-xl flex items-center justify-center gap-2 text-sm font-bold hover:bg-gray-50"><Download size={16}/> Télécharger</button>
+                             <button onClick={() => document.getElementById('calculator')?.scrollIntoView({ behavior: 'smooth' })} className="w-full bg-brand-dark text-white p-4 rounded-xl font-bold shadow-lg">ESTIMER CE RENDU</button>
                           </div>
                       ) : (
-                        <div className="hidden md:flex p-6 flex-col h-full justify-center items-center text-center">
-                            {!isProcessing && (
-                                <>
-                                    <Sparkles size={32} className="text-gray-200 mb-4" />
-                                    <p className="text-sm text-gray-400 font-medium">
-                                        Importez une photo pour débloquer les outils de personnalisation.
-                                    </p>
-                                    {!imagePreview && (
-                                        <button 
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="mt-6 text-action-orange font-bold text-sm underline"
-                                        >
-                                            Importer maintenant
-                                        </button>
-                                    )}
-                                    {imagePreview && !processedImage && !error && (
-                                         <button 
-                                            onClick={() => handleProcess()}
-                                            disabled={isProcessing || !fileRef.current}
-                                            className="mt-6 w-full px-6 py-3 bg-action-orange text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                         >
-                                            {fileRef.current ? 'Lancer l\'IA' : 'Photo requise'}
-                                         </button>
-                                    )}
-                                </>
-                            )}
+                        <div className="hidden md:flex p-6 h-full justify-center items-center text-center text-gray-400 text-sm">
+                            {!isProcessing && "Importez une photo pour commencer."}
                         </div>
                       )}
                   </div>
