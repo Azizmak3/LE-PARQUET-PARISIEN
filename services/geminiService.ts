@@ -2,25 +2,39 @@ import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { CalculationResult } from '../types';
 
 // STRICT ENV VAR HANDLING: Ensure API_KEY is a string for the SDK constructor.
-// Vite replaces process.env.API_KEY via define, but TS needs the cast.
 const API_KEY = (process.env.API_KEY as string) || '';
-// Initialize SDK only if key exists to avoid immediate startup errors, otherwise we handle it in calls
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const CHAT_MODEL = 'gemini-3-pro-preview';
-// Using 2.5 Flash Image for renovation as it's faster and supports edit-like instructions well
 const RENOVATE_MODEL = 'gemini-2.5-flash-image';
 const GEN_MODEL = 'gemini-3-pro-image-preview';
 
 // --- UTILS ---
 
 /**
+ * Helper to convert Base64 string back to Blob for efficient URL creation
+ */
+const base64ToBlob = (base64: string, mimeType: string): Blob => {
+  try {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+  } catch (e) {
+    console.error("Error converting base64 to blob", e);
+    return new Blob([], { type: mimeType });
+  }
+};
+
+/**
  * Resizes an image File to a Blob with strict mobile limits
- * Reduced to 600px max to ensure Data URL stays lightweight for instant mobile rendering
+ * Reduced to 512px max to ensure Data URL stays lightweight for instant mobile rendering
  */
 const resizeImageToBlob = (file: File): Promise<Blob | null> => {
   return new Promise((resolve) => {
-    // Failsafe timeout
     const timeout = setTimeout(() => {
       console.error('[RESIZE] Timeout after 3s');
       resolve(null);
@@ -31,9 +45,8 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
     img.onload = () => {
       clearTimeout(timeout);
       try {
-        // MOBILE OPTIMIZATION: 600px is the sweet spot for mobile screens
-        // This ensures the base64 string doesn't crash the mobile GPU texture limit
-        const MAX_SIZE = 600; 
+        // MOBILE OPTIMIZATION: 512px is safer for all mobile networks/GPUs
+        const MAX_SIZE = 512; 
         let w = img.width;
         let h = img.height;
 
@@ -57,26 +70,18 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
         const ctx = canvas.getContext('2d');
         
         if (!ctx) {
-          console.error('[RESIZE] No canvas context');
           resolve(null);
           return;
         }
 
-        // Fill white background (transparency can cause black artifacts in JPEGs)
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         
-        // Convert to JPEG with moderate compression (0.7)
+        // Moderate compression (0.6)
         canvas.toBlob((blob) => {
-          if (blob) {
-            console.log(`[RESIZE] Final blob: ${blob.size} bytes (${blob.type})`);
-            resolve(blob);
-          } else {
-            console.error('[RESIZE] toBlob returned null');
-            resolve(null);
-          }
-        }, 'image/jpeg', 0.7);
+          resolve(blob);
+        }, 'image/jpeg', 0.6);
       } catch (e) {
         console.error('[RESIZE] Error:', e);
         resolve(null);
@@ -85,15 +90,12 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
     
     img.onerror = (e) => {
       clearTimeout(timeout);
-      console.error('[RESIZE] Image load error:', e);
       resolve(null);
     };
     
-    // Create object URL safely
     try {
       img.src = URL.createObjectURL(file);
     } catch (e) {
-      console.error('[RESIZE] Failed to create ObjectURL:', e);
       resolve(null);
     }
   });
@@ -108,7 +110,6 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
         reject(new Error("Invalid base64 conversion"));
         return;
       }
-      // Remove data:image/jpeg;base64, prefix
       const base64Data = base64String.split(',')[1];
       resolve(base64Data);
     };
@@ -187,14 +188,11 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
 
     let result = await chat.sendMessage({ message: newMessage });
     
-    // Strict guard for result access
     if (!result) return "Erreur: Pas de réponse de l'IA.";
 
     const calls = result.functionCalls;
     if (calls && calls.length > 0) {
       const call = calls[0];
-      
-      // TS18048 FIX: Ensure args exists before accessing
       const args = call.args || {};
       const nameArg = args['name'] as string | undefined;
 
@@ -203,7 +201,6 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
         message: `Rendez-vous confirmé pour ${nameArg || 'le client'}.`
       };
       
-      // Sending function response back
       result = await chat.sendMessage({
         message: [{
           functionResponse: { name: call.name, response: functionResponse }
@@ -211,7 +208,6 @@ export const sendChatMessage = async (history: { role: string, parts: { text: st
       });
     }
     
-    // Fallback to empty string if text is undefined
     return result.text || "Désolé, je n'ai pas pu générer de réponse.";
   } catch (error) {
     console.error("Chat Error:", error);
@@ -226,27 +222,22 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
 
   try {
     // 1. Resize image (Critical for speed and MOBILE MEMORY)
-    console.log('[RENOVATE] Resizing image...');
+    // Decreased to 512px for maximum stability
     const blob = await resizeImageToBlob(fileInput);
     if (!blob) throw new Error("Erreur lors de la préparation de l'image.");
 
     // --- SAFE DEMO MODE ---
-    // If API Key is missing, we simulate a success to avoid crashing the UI
     if (!API_KEY) {
       console.warn("⚠️ [GEMINI] No API Key found. Running in DEMO MODE.");
-      console.warn("Please set API_KEY or GEMINI_API_KEY in your Netlify Environment Variables.");
-      await new Promise(r => setTimeout(r, 1500)); // Simulate processing delay
-      // Just return the input image as data url in demo mode
-      const base64Data = await blobToBase64(blob);
-      return `data:image/jpeg;base64,${base64Data}`;
+      await new Promise(r => setTimeout(r, 1500));
+      // Just return the input image as BLOB URL in demo mode
+      return URL.createObjectURL(blob);
     }
 
     // 2. Convert to Base64 for the SDK
     const base64Data = await blobToBase64(blob);
 
     // 3. Call Google Gemini Directly
-    console.log('[RENOVATE] Calling Gemini API directly...');
-    
     const finalPrompt = `${promptText}
 
 CRITICAL INSTRUCTIONS:
@@ -267,27 +258,20 @@ CRITICAL INSTRUCTIONS:
         }
       ],
       config: {
-        responseModalities: ["IMAGE"], // Force image output
+        responseModalities: ["IMAGE"],
       }
     });
 
     console.log(`[RENOVATE] API responded in ${Date.now() - startTime}ms`);
 
-    // 4. Extract Image with SAFE GUARDS for TypeScript (TS2532)
     const candidates = response.candidates;
     if (!candidates || candidates.length === 0) throw new Error("L'IA n'a pas renvoyé de résultat.");
     
     const firstCandidate = candidates[0];
+    const parts = firstCandidate.content?.parts;
     
-    // Guard: Content existence
-    if (!firstCandidate || !firstCandidate.content) {
-        throw new Error("Structure de réponse invalide (contenu manquant).");
-    }
-
-    // Guard: Parts existence
-    const parts = firstCandidate.content.parts;
     if (!parts || parts.length === 0) {
-        throw new Error("Structure de réponse invalide (parties manquantes).");
+        throw new Error("Structure de réponse invalide.");
     }
 
     const imagePart = parts.find(p => p.inlineData);
@@ -296,25 +280,26 @@ CRITICAL INSTRUCTIONS:
         const resultBase64 = imagePart.inlineData.data;
         const resultMime = imagePart.inlineData.mimeType || 'image/jpeg';
         
-        // MOBILE FIX: Use Data URL directly instead of Blob URL
         if (resultBase64.length < 100) {
-           throw new Error("Generated image data is corrupted or too small.");
+           throw new Error("Generated image data is corrupted.");
         }
         
-        // Sanitize base64 string
-        const cleanBase64 = resultBase64.replace(/[\r\n]+/g, '');
+        // 4. CONVERT TO BLOB URL (Crucial for Mobile)
+        // Instead of returning a huge base64 string which gets blocked,
+        // we convert to a Blob and return a short blob: URL.
+        const resultBlob = base64ToBlob(resultBase64, resultMime);
+        const resultUrl = URL.createObjectURL(resultBlob);
         
-        const dataUrl = `data:${resultMime};base64,${cleanBase64}`;
-        console.log(`[GEMINI] Generated valid Data URL (${dataUrl.length} chars)`);
+        console.log(`[GEMINI] Generated valid Blob URL: ${resultUrl}`);
         
-        return dataUrl;
+        return resultUrl;
     }
 
     throw new Error("Aucune image générée dans la réponse.");
 
   } catch (error: any) {
     console.error('[RENOVATE] ERROR:', error);
-    if (error.message?.includes('400')) return null; // Bad Request usually means safety filter or bad image
+    if (error.message?.includes('400')) return null; 
     throw new Error(error.message || "Une erreur est survenue pendant la génération.");
   }
 };
@@ -329,21 +314,15 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
       config: { imageConfig: { imageSize: size } }
     });
 
-    // Safely access nested optional properties with strict null checks
     const candidates = response.candidates;
     if (!candidates || candidates.length === 0) return null;
-
-    const firstCandidate = candidates[0];
-    if (!firstCandidate || !firstCandidate.content) return null;
-
-    const parts = firstCandidate.content.parts;
-    // Guard against parts being undefined before iterating
+    const parts = candidates[0].content?.parts;
     if (!parts) return null;
 
     for (const part of parts) {
       if (part.inlineData && part.inlineData.data) {
-        // Return Data URL for consistency
-        return `data:image/png;base64,${part.inlineData.data}`;
+        const blob = base64ToBlob(part.inlineData.data, 'image/png');
+        return URL.createObjectURL(blob);
       }
     }
     
