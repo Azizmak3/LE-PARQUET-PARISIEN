@@ -46,24 +46,23 @@ const Renovator: React.FC = () => {
     }
   }, [imagePreview]);
 
-  // Clean up blob URLs to prevent memory leaks (Only for preview now, processed is Data URL)
+  // Clean up blob URLs (only for input preview, processed is now Data URL)
   useEffect(() => {
     return () => {
         if (imagePreview && imagePreview.startsWith('blob:')) {
             URL.revokeObjectURL(imagePreview);
         }
-        // Processed image is now a Data URL string, no need to revoke
     };
   }, [imagePreview]);
 
-  // Force image preloading when processedImage is set
+  // Force image preloading when processedImage is set to catch errors early
   useEffect(() => {
     if (processedImage) {
       setImgLoadError(false);
       const img = new Image();
-      img.onload = () => console.log('[RENOVATOR] Processed image preloaded successfully');
+      img.onload = () => console.log('[RENOVATOR] Processed Data URL preloaded successfully');
       img.onerror = () => {
-          console.error('[RENOVATOR] Failed to preload processed image');
+          console.error('[RENOVATOR] Failed to load processed Data URL');
           setImgLoadError(true);
       };
       img.src = processedImage;
@@ -148,14 +147,14 @@ const Renovator: React.FC = () => {
 
       console.log('[PROCESS] Calling renovateImage with prompt:', prompt);
 
-      // Call the service
+      // Call the service - now returns a Data URL string
       const result = await renovateImage(fileRef.current, prompt);
       
       clearTimeout(failsafeTimer);
 
       if (result) {
         console.log('[PROCESS] SUCCESS - got result length:', result.length);
-        setProcessedImage(result); // This is now a Data URL string
+        setProcessedImage(result); 
         if (!processedImage) {
           setIsLocked(true); // Lock only on first successful generation
         }
@@ -419,7 +418,7 @@ const Renovator: React.FC = () => {
                                     key={processedImage} // Force re-render on new image
                                     src={processedImage} 
                                     alt="After" 
-                                    decoding="sync" // Ensure synchronous decoding before paint for mobile
+                                    decoding="async" // Ensure async decoding before paint for mobile
                                     loading="eager"
                                     onError={() => setImgLoadError(true)}
                                     className="w-full h-full object-cover block"
@@ -445,7 +444,7 @@ const Renovator: React.FC = () => {
                                 <img 
                                     src={imagePreview} 
                                     alt="Before" 
-                                    decoding="sync"
+                                    decoding="async"
                                     loading="eager"
                                     className="w-full h-full object-cover grayscale brightness-90 block" 
                                     style={{

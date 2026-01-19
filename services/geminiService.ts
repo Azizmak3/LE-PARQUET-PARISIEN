@@ -230,7 +230,9 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
       console.warn("⚠️ [GEMINI] No API Key found. Running in DEMO MODE.");
       console.warn("Please set API_KEY or GEMINI_API_KEY in your Netlify Environment Variables.");
       await new Promise(r => setTimeout(r, 1500)); // Simulate processing delay
-      return URL.createObjectURL(blob); // Return the original resized image as the "result"
+      // Just return the input image as data url in demo mode
+      const base64Data = await blobToBase64(blob);
+      return `data:image/jpeg;base64,${base64Data}`;
     }
 
     // 2. Convert to Base64 for the SDK
@@ -295,7 +297,10 @@ CRITICAL INSTRUCTIONS:
            throw new Error("Generated image data is corrupted or too small.");
         }
         
-        const dataUrl = `data:${resultMime};base64,${resultBase64}`;
+        // Sanitize base64 string
+        const cleanBase64 = resultBase64.replace(/[\r\n]+/g, '');
+        
+        const dataUrl = `data:${resultMime};base64,${cleanBase64}`;
         console.log(`[GEMINI] Generated valid Data URL (${dataUrl.length} chars)`);
         
         return dataUrl;
@@ -333,6 +338,7 @@ export const generateInspiration = async (prompt: string, size: '1K' | '2K' | '4
 
     for (const part of parts) {
       if (part.inlineData && part.inlineData.data) {
+        // Return Data URL for consistency
         return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
