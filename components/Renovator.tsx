@@ -35,7 +35,7 @@ const Renovator: React.FC = () => {
   const [selectedFinish, setSelectedFinish] = useState('vitrification-mat');
   const [imgLoadError, setImgLoadError] = useState(false);
   
-  // Track container width for the nested image to prevent squishing
+  // Track container width for the nested image to prevent squishing (Desktop only)
   const [containerWidth, setContainerWidth] = useState<number>(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,12 +51,12 @@ const Renovator: React.FC = () => {
     }
   }, [imagePreview]);
 
-  // Sync container width for robust mobile rendering (No Squish)
+  // Sync container width for robust slider rendering (Desktop)
   useEffect(() => {
     if (!imageContainerRef.current) return;
     
     const updateWidth = () => {
-        if (imageContainerRef.current) {
+        if (imageContainerRef.current && imageContainerRef.current.offsetWidth > 0) {
             setContainerWidth(imageContainerRef.current.offsetWidth);
         }
     };
@@ -400,7 +400,7 @@ const Renovator: React.FC = () => {
                             </div>
                         )}
 
-                        {/* VISUALIZER - MOBILE ROBUST VERSION (DIV MASKING) */}
+                        {/* VISUALIZER - SPLIT: MOBILE (Static) vs DESKTOP (Slider) */}
                         {!imageReadyToDisplay ? (
                         <>
                             <img src={imagePreview || undefined} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
@@ -416,54 +416,63 @@ const Renovator: React.FC = () => {
                             </div>
                         </>
                         ) : (
-                        <div 
-                            className="relative w-full h-full select-none touch-none bg-gray-100 cursor-ew-resize overflow-hidden"
-                            ref={imageContainerRef}
-                            onMouseMove={(e) => handleSliderMove(e.clientX)}
-                            onTouchMove={(e) => {
-                                // STOP PROPAGATION TO PREVENT SCROLLING
-                                e.stopPropagation(); 
-                                handleSliderMove(e.touches[0].clientX);
-                            }}
-                            // Removed translateZ to avoid mobile Safari blanking
-                        >
-                            {/* 1. BOTTOM LAYER: The Renovated Image (Full) */}
-                            <img 
-                                src={processedImage || undefined} 
-                                alt="Renovated" 
-                                className="absolute inset-0 w-full h-full object-cover"
-                                draggable={false}
-                            />
-                            <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-3 py-1 rounded-full text-xs font-bold shadow-md z-10 pointer-events-none">APRÈS</div>
-                            
-                            {/* 2. TOP LAYER: The Original Image (Masked by Width) */}
-                            <div 
-                                className="absolute top-0 left-0 h-full overflow-hidden border-r-[3px] border-white shadow-[2px_0_15px_rgba(0,0,0,0.2)] z-20"
-                                style={{ width: `${sliderPosition}%`, willChange: 'width' }}
-                            >
-                                {/* IMPORTANT: Inner image uses explicit width from state to stay fixed */}
+                          <>
+                            {/* 1. MOBILE VERSION: Simple Static Result Image (Fixes blank screen issues) */}
+                            <div className="md:hidden relative w-full h-full bg-gray-100">
                                 <img 
-                                    src={imagePreview || undefined} 
-                                    alt="Original" 
-                                    className="absolute top-0 left-0 max-w-none object-cover h-full"
-                                    style={{ 
-                                        width: containerWidth > 0 ? `${containerWidth}px` : '100%',
-                                    }} 
+                                    src={processedImage || undefined} 
+                                    alt="Rénovation Terminée" 
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                />
+                                <div className="absolute top-4 right-4 bg-white/90 text-brand-dark px-3 py-1 rounded-full text-xs font-bold shadow-md z-10 flex items-center gap-1">
+                                    <Sparkles size={12} className="text-action-orange"/> APRÈS
+                                </div>
+                                {/* Optional: Hint that slider is on desktop */}
+                            </div>
+
+                            {/* 2. DESKTOP VERSION: Full Interactive Slider */}
+                            <div 
+                                className="hidden md:block relative w-full h-full select-none bg-gray-100 cursor-ew-resize overflow-hidden"
+                                ref={imageContainerRef}
+                                onMouseMove={(e) => handleSliderMove(e.clientX)}
+                            >
+                                {/* Bottom Layer: Renovated Image (Full) */}
+                                <img 
+                                    src={processedImage || undefined} 
+                                    alt="Renovated" 
+                                    className="absolute inset-0 w-full h-full object-cover"
                                     draggable={false}
                                 />
-                                <div className="absolute top-6 left-6 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md backdrop-blur-sm pointer-events-none">AVANT</div>
-                            </div>
-                            
-                            {/* 3. SLIDER HANDLE */}
-                            <div 
-                                className="absolute top-0 bottom-0 w-12 -ml-6 z-30 flex items-center justify-center cursor-ew-resize"
-                                style={{ left: `${sliderPosition}%` }}
-                            >
-                                <div className="w-11 h-11 bg-white rounded-full shadow-xl flex items-center justify-center border-[3px] border-white/50 backdrop-blur-sm pointer-events-none">
-                                    <MoveHorizontal size={20} className="text-brand-dark opacity-80" />
+                                <div className="absolute top-6 right-6 bg-white/90 text-brand-dark px-3 py-1 rounded-full text-xs font-bold shadow-md z-10 pointer-events-none">APRÈS</div>
+                                
+                                {/* Top Layer: Original Image (Masked) */}
+                                <div 
+                                    className="absolute top-0 left-0 h-full overflow-hidden border-r-[3px] border-white shadow-[2px_0_15px_rgba(0,0,0,0.2)] z-20"
+                                    style={{ width: `${sliderPosition}%`, willChange: 'width' }}
+                                >
+                                    <img 
+                                        src={imagePreview || undefined} 
+                                        alt="Original" 
+                                        className="absolute top-0 left-0 max-w-none object-cover h-full"
+                                        style={{ 
+                                            width: containerWidth > 0 ? `${containerWidth}px` : '100%',
+                                        }} 
+                                        draggable={false}
+                                    />
+                                    <div className="absolute top-6 left-6 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md backdrop-blur-sm pointer-events-none">AVANT</div>
+                                </div>
+                                
+                                {/* Slider Handle */}
+                                <div 
+                                    className="absolute top-0 bottom-0 w-12 -ml-6 z-30 flex items-center justify-center cursor-ew-resize"
+                                    style={{ left: `${sliderPosition}%` }}
+                                >
+                                    <div className="w-11 h-11 bg-white rounded-full shadow-xl flex items-center justify-center border-[3px] border-white/50 backdrop-blur-sm pointer-events-none">
+                                        <MoveHorizontal size={20} className="text-brand-dark opacity-80" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                          </>
                         )}
                     </div>
                   </div>
