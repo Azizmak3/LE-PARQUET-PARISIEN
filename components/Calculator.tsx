@@ -272,7 +272,7 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
               {state.step === 5 && (
                 <div className="animate-fade-in text-center py-4 md:py-8">
                      {/* Feature 4: Countdown Timer (Urgency Header) */}
-                     {state.result && (
+                     {state.result && state.result.minPrice > 0 && (
                         <div className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-xl p-4 mb-6 text-left">
                           <div className="flex items-start gap-3">
                             <div className="flex-1">
@@ -322,7 +322,10 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                     </div>
                                     <h3 className="text-2xl md:text-3xl font-bold text-brand-dark mb-2">Estimation Prête !</h3>
                                     <p className="text-gray-500 mb-8 max-w-md mx-auto text-sm md:text-base">
-                                        Nous avons calculé une fourchette de prix précise. Complétez le formulaire sécurisé ci-dessous pour débloquer votre tarif et le recevoir par email.
+                                        {state.result.minPrice === 0 
+                                            ? "Les dégâts des eaux nécessitent une expertise particulière. Remplissez le formulaire pour être recontacté en priorité."
+                                            : "Nous avons calculé une fourchette de prix précise. Complétez le formulaire sécurisé ci-dessous pour débloquer votre tarif et le recevoir par email."
+                                        }
                                     </p>
                                     
                                     {/* Styled HubSpot Form Integration */}
@@ -340,7 +343,10 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                             </div>
                                         </div>
                                         
-                                        <HubSpotForm onSuccess={handleHubSpotSuccess} submitButtonText="AFFICHER MON PRIX" />
+                                        <HubSpotForm 
+                                            onSuccess={handleHubSpotSuccess} 
+                                            submitButtonText={state.result.minPrice === 0 ? "CONTACTER UN EXPERT" : "AFFICHER MON PRIX"} 
+                                        />
 
                                     </div>
                                 </>
@@ -350,11 +356,27 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                         <TrendingUp className="w-[120px] h-[120px] md:w-[150px] md:h-[150px]" />
                                     </div>
                                     
-                                    <p className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Budget Estimé (Tout Compris)</p>
-                                    <div className="text-4xl md:text-7xl font-bold text-white mb-2 tracking-tighter">
-                                        {state.result.minPrice}€ <span className="text-gray-600 text-3xl md:text-4xl font-light">-</span> {state.result.maxPrice}€
-                                    </div>
-                                    <p className="text-gray-400 text-sm mb-8">Tarif garanti pour une validation sous 48h.</p>
+                                    {state.result.minPrice === 0 ? (
+                                        // SPECIAL WATER DAMAGE VIEW
+                                        <div className="mb-8">
+                                            <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-white/20">
+                                                <AlertCircle className="w-10 h-10 text-action-orange" />
+                                            </div>
+                                            <h3 className="text-3xl font-bold text-white mb-2">Expertise Requise</h3>
+                                            <p className="text-gray-300 text-sm md:text-base max-w-md mx-auto">
+                                                Pour les dégâts des eaux, nous devons évaluer l'humidité sur place. Le devis ne peut être établi qu'après visite technique (gratuite).
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        // STANDARD PRICE VIEW
+                                        <>
+                                            <p className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Budget Estimé (Tout Compris)</p>
+                                            <div className="text-4xl md:text-7xl font-bold text-white mb-2 tracking-tighter">
+                                                {state.result.minPrice}€ <span className="text-gray-600 text-3xl md:text-4xl font-light">-</span> {state.result.maxPrice}€
+                                            </div>
+                                            <p className="text-gray-400 text-sm mb-8">Tarif garanti pour une validation sous 48h.</p>
+                                        </>
+                                    )}
 
                                     <div className="grid grid-cols-2 gap-4 text-left mb-8">
                                         <div className="bg-white/10 p-3 md:p-4 rounded-xl border border-white/5">
@@ -367,15 +389,27 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                         </div>
                                     </div>
 
-                                    <a 
-                                        href="https://cal.com/leparquetparisien/diagnostic"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block w-full text-center bg-white text-brand-dark hover:bg-gray-100 font-bold py-4 rounded-xl shadow-lg transition-all mb-4 text-sm md:text-base cursor-pointer"
-                                    >
-                                        RÉSERVER CE TARIF MAINTENANT
-                                    </a>
-                                    <button onClick={() => { setIsFormSubmitted(false); setState(s => ({...s, step: 1})); }} className="text-xs md:text-sm text-gray-400 hover:text-white underline">
+                                    <div className="space-y-3">
+                                        <a 
+                                            href="https://cal.com/leparquetparisien/diagnostic"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block w-full text-center bg-white text-brand-dark hover:bg-gray-100 font-bold py-4 rounded-xl shadow-lg transition-all text-sm md:text-base cursor-pointer"
+                                        >
+                                            RÉSERVER MA VISITE GRATUITE
+                                        </a>
+                                        
+                                        <a 
+                                            href="https://wa.me/33614494907?text=Bonjour,%20j'ai%20eu%20mon%20estimation%20et%20je%20souhaite%20prendre%20rendez-vous."
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block w-full text-center bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-4 rounded-xl shadow-lg transition-all text-sm md:text-base cursor-pointer flex items-center justify-center gap-2"
+                                        >
+                                           <Phone size={18} /> CONTACTER SUR WHATSAPP
+                                        </a>
+                                    </div>
+
+                                    <button onClick={() => { setIsFormSubmitted(false); setState(s => ({...s, step: 1})); }} className="text-xs md:text-sm text-gray-400 hover:text-white underline mt-6">
                                         Recommencer une estimation
                                     </button>
                                 </div>

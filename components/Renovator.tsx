@@ -36,6 +36,9 @@ const Renovator: React.FC = () => {
   const [selectedFinish, setSelectedFinish] = useState('vitrification-mat');
   const [imgLoadError, setImgLoadError] = useState(false);
   
+  // Track if user has already unlocked the form in this session
+  const hasUnlockedRef = useRef(false);
+  
   // Track container width for the nested image to prevent squishing (Desktop only)
   const [containerWidth, setContainerWidth] = useState<number>(0);
   
@@ -84,7 +87,10 @@ const Renovator: React.FC = () => {
     img.onload = () => {
       console.log("Image loaded successfully:", processedImage.substring(0, 50) + "...");
       setImageReadyToDisplay(true);
-      if (!isLocked) setIsLocked(true);
+      // Only lock if the user hasn't unlocked it yet in this session
+      if (!hasUnlockedRef.current) {
+        setIsLocked(true);
+      }
     };
     img.onerror = (e) => {
       console.error("Failed to load processed image", e);
@@ -173,10 +179,10 @@ const Renovator: React.FC = () => {
     }, 60000); 
     
     try {
-      let prompt = "Rénovation parquet finition vitrification mat naturel, aspect bois brut.";
-      if (finishType === 'vitrification-brillant') prompt = "Rénovation parquet finition vitrification brillante, haute brillance.";
-      if (finishType === 'huilage') prompt = "Rénovation parquet finition huilé naturel, texture bois apparente.";
-      if (finishType === 'teinte-wenge') prompt = "Rénovation parquet teinte wengé sombre, bois foncé.";
+      let prompt = "Ultra-realistic hardwood floor, Matte finish, natural light oak color, smooth texture, no reflections. Pristine condition, brand new, flawless, completely cleaned.";
+      if (finishType === 'vitrification-brillant') prompt = "Ultra-realistic hardwood floor, High-Gloss Varnish finish, highly reflective, polished look, rich honey color. Pristine condition, brand new, mirror-like surface, flawless.";
+      if (finishType === 'huilage') prompt = "Ultra-realistic hardwood floor, Natural Oil finish, matte texture, visible wood grain, warm rustic tone. Pristine condition, brand new, deeply nourished wood, flawless.";
+      if (finishType === 'teinte-wenge') prompt = "Ultra-realistic hardwood floor, Dark Wenge stain, deep brown-black color, satin finish, elegant look. Pristine condition, brand new, uniform color, flawless.";
 
       const resultUrl = await renovateImage(fileRef.current, prompt);
       clearTimeout(failsafeTimer);
@@ -206,6 +212,7 @@ const Renovator: React.FC = () => {
 
   const handleUnlock = () => {
     setIsLocked(false);
+    hasUnlockedRef.current = true;
   };
 
   const handleDownload = () => {

@@ -36,7 +36,7 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
 
 /**
  * Resizes an image File to a Blob with strict mobile limits.
- * Increased to 800px to ensure the AI can see furniture details to preserve them.
+ * Increased to 1024px to ensure high fidelity for the user's photo.
  */
 const resizeImageToBlob = (file: File): Promise<Blob | null> => {
   return new Promise((resolve) => {
@@ -50,8 +50,8 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
     img.onload = () => {
       clearTimeout(timeout);
       try {
-        // OPTIMIZATION: 800px is a good balance between detail (for consistency) and speed/memory
-        const MAX_SIZE = 800; 
+        // OPTIMIZATION: 1024px preserves details better while staying within API latency limits
+        const MAX_SIZE = 1024; 
         let w = img.width;
         let h = img.height;
 
@@ -84,10 +84,10 @@ const resizeImageToBlob = (file: File): Promise<Blob | null> => {
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         
-        // Slightly higher quality for better AI recognition
+        // High quality for better AI recognition
         canvas.toBlob((blob) => {
           resolve(blob);
-        }, 'image/jpeg', 0.85);
+        }, 'image/jpeg', 0.90);
       } catch (e) {
         console.error('[RESIZE] Error:', e);
         resolve(null);
@@ -132,15 +132,44 @@ export const calculateEstimate = async (
   finish: string
 ): Promise<CalculationResult> => {
   
-  let pricePerSqm = 35;
-  if (condition === 'Mauvais') {
-    pricePerSqm = 40;
+  // SPECIAL CASE: Water Damage (Dégâts des Eaux)
+  if (type === 'DegatsEaux') {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          minPrice: 0, // 0 Signals "Sur Devis" in the UI
+          maxPrice: 0,
+          duration: "Urgence",
+          materials: ["Déshumidificateurs", "Traitement fongicide", "Raccord parquet"],
+          recommendation: "Les dégâts des eaux nécessitent une expertise technique sur place pour évaluer l'humidité résiduelle sous le parquet.",
+          confidence: 100
+        });
+      }, 1200);
+    });
   }
 
-  const baseTotal = surface * pricePerSqm;
-  const minPrice = baseTotal;
-  const maxPrice = Math.round(baseTotal * 1.1);
+  // PRICING LOGIC
+  let basePrice = 35; // Standard Renovation Base
+  
+  if (type === 'Pose') {
+    basePrice = 65; // New Installation Base
+  }
 
+  // CONDITION MODIFIERS (+5€ increments)
+  let conditionMarkup = 0;
+  if (condition === 'Moyen') {
+    conditionMarkup = 5;
+  } else if (condition === 'Mauvais') {
+    conditionMarkup = 10;
+  }
+
+  const finalPricePerSqm = basePrice + conditionMarkup;
+  
+  const baseTotal = surface * finalPricePerSqm;
+  const minPrice = baseTotal;
+  const maxPrice = Math.round(baseTotal * 1.15); // 15% margin for complex details
+
+  // DURATION LOGIC
   let duration = "2 jours";
   if (surface > 30) duration = "3 jours";
   if (surface > 55) duration = "4-5 jours";
@@ -150,10 +179,12 @@ export const calculateEstimate = async (
     minPrice: minPrice,
     maxPrice: maxPrice,
     duration: duration,
-    materials: ["Vernis Premium (Bona/Blanchon)", "Abrasifs grain 40-120", "Fond dur écologique"],
+    materials: type === 'Pose' 
+      ? ["Colle MS Polymère", "Chêne Massif/Contrecollé", "Plinthes assorties"]
+      : ["Vernis Premium (Bona/Blanchon)", "Abrasifs grain 40-120", "Fond dur écologique"],
     recommendation: condition === 'Mauvais' 
-      ? "Vu l'état d'usure, un ponçage à blanc en 3 passes est nécessaire pour récupérer le bois brut." 
-      : "Un ponçage de rafraîchissement suffira pour sublimer votre parquet.",
+      ? "Vu l'état d'usure, un traitement intensif est prévu pour restaurer intégralement le support." 
+      : "Le forfait inclut la préparation complète et les 3 couches de finition.",
     confidence: 98
   };
 
@@ -227,8 +258,8 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
   console.log('[RENOVATE] Starting Client-Side renovation:', fileInput.name);
 
   try {
-    // 1. Resize image (Critical for speed and MOBILE MEMORY)
-    // 800px ensures enough detail for the model to preserve furniture structure
+    // 1. Resize image
+    // Increased to 1024px to ensure high fidelity for the user's photo
     const blob = await resizeImageToBlob(fileInput);
     if (!blob) throw new Error("Erreur lors de la préparation de l'image.");
 
@@ -243,19 +274,19 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
     const base64Data = await blobToBase64(blob);
 
     // 3. Call Google Gemini Directly
-    // STRICT EDITING PROMPT
+    // STRICT FIDELITY PROMPT
     const finalPrompt = `
-    You are an expert renovation AI. 
-    INPUT: A photo of a room with existing flooring.
-    TASK: Renovate ONLY the floor texture based on this style: "${promptText}".
+    ACT AS A HIGH-END INTERIOR DESIGN PHOTO EDITOR.
+    INPUT IMAGE: Use the provided image as the absolute ground truth for the room's geometry.
+    TASK: Change the floor finish to: "${promptText}".
     
-    CRITICAL CONSTRAINTS (DO NOT IGNORE):
-    1. GEOMETRY LOCK: The perspective, walls, furniture, ceiling, windows, and objects must remain EXACTLY in the same pixel coordinates.
-    2. NO HALLUCINATIONS: Do not add new furniture or remove existing objects.
-    3. LIGHTING MATCH: The new floor must reflect the light sources exactly as the old floor did.
-    4. REPLACEMENT: Replace the old floor texture with a pristine, renovated version (smooth, clean, high-end finish).
+    STRICT CONSTRAINTS:
+    1. REPAIR & CLEAN: Remove all stains, scratches, water damage, and signs of wear from the floor. The floor must look brand new and perfectly installed.
+    2. EXACT MATCH: The walls, windows, furniture, ceiling, and lighting MUST be identical to the original image. Do not move, add, or remove any object.
+    3. PERSPECTIVE LOCK: The new floor lines must follow the exact perspective of the original room.
+    4. PHOTOREALISM: The floor texture must look like high-quality, real wood flooring.
     
-    The output image must align perfectly with the input image.`;
+    OUTPUT: The exact same photo, but with the renovated, pristine floor.`;
 
     const response = await ai.models.generateContent({
       model: RENOVATE_MODEL,
