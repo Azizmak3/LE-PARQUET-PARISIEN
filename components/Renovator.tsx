@@ -539,7 +539,6 @@ const Renovator: React.FC = () => {
                                 <>
                                     <Sparkles className="w-12 h-12 text-action-orange animate-spin" />
                                     <p className="font-bold text-brand-dark">Analyse en cours...</p>
-                                    <p className="text-xs text-gray-500">Cela prend environ 5 à 10 secondes</p>
                                 </>
                             ) : (
                                 <>
