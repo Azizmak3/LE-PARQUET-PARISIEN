@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Loader2, ArrowRight, ShieldCheck, Mail, TrendingUp, Info, AlertCircle, Phone, BedDouble, Sofa, Home, Building2, Warehouse, Sparkles, Hammer, Wrench, Timer, Users, Star, CheckCircle2 } from 'lucide-react';
 import { calculateEstimate } from '../services/geminiService';
-import { insertLead } from '../services/supabaseClient';
+import HubSpotForm from './HubSpotForm'; // Import styled HubSpot Form
 import { CalculatorState } from '../types';
 
 interface CalculatorProps {
@@ -29,10 +29,10 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
     result: null,
   });
 
-  const [email, setEmail] = useState('');
-  const [isEmailSent, setIsEmailSent] = useState(false);
+  // Replaced manual email state with a boolean to track form success
+  const [isFormSubmitted, setIsFormSubmitted] = useState(false);
+  
   const [timeLeft, setTimeLeft] = useState({ hours: 23, minutes: 59, seconds: 59 });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (initialService) {
@@ -78,29 +78,9 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
     }, 1500);
   };
 
-  const handleLeadCapture = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-
-    setIsSubmitting(true);
-
-    // Save to Supabase
-    await insertLead({
-      email: email,
-      source: 'calculator',
-      zip_code: initialZip || undefined,
-      service_type: state.type,
-      surface_area: state.surface,
-      current_condition: state.condition,
-      finish_preference: state.finish,
-      estimated_price_min: state.result?.minPrice,
-      estimated_price_max: state.result?.maxPrice,
-      estimated_duration: state.result?.duration,
-      marketing_opt_in: true // Implicit opt-in for estimate delivery
-    });
-
-    setIsSubmitting(false);
-    setIsEmailSent(true);
+  const handleHubSpotSuccess = () => {
+    // When HubSpot form is submitted, reveal the price
+    setIsFormSubmitted(true);
   };
 
   return (
@@ -335,17 +315,19 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                         </div>
                      ) : state.result && (
                         <div className="animate-slide-up">
-                            {!isEmailSent ? (
+                            {!isFormSubmitted ? (
                                 <>
                                     <div className="w-16 h-16 md:w-20 md:h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 animate-bounce">
                                         <Check className="w-8 h-8 md:w-10 md:h-10" />
                                     </div>
                                     <h3 className="text-2xl md:text-3xl font-bold text-brand-dark mb-2">Estimation Prête !</h3>
                                     <p className="text-gray-500 mb-8 max-w-md mx-auto text-sm md:text-base">
-                                        Nous avons calculé une fourchette de prix précise. Entrez votre email pour voir le résultat et bloquer ce tarif.
+                                        Nous avons calculé une fourchette de prix précise. Complétez le formulaire sécurisé ci-dessous pour débloquer votre tarif et le recevoir par email.
                                     </p>
+                                    
+                                    {/* Styled HubSpot Form Integration */}
                                     <div className="bg-white border border-gray-200 rounded-2xl p-6 md:p-8 shadow-lg max-w-md mx-auto text-left relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg animate-pulse">
+                                        <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg animate-pulse z-10">
                                             -10% si validé cette semaine
                                         </div>
                                         <div className="flex items-center gap-3 mb-6">
@@ -353,30 +335,13 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                                 <Mail className="text-action-orange" />
                                             </div>
                                             <div>
-                                                <h4 className="font-bold text-brand-dark">Voir mon estimation</h4>
-                                                <p className="text-xs text-gray-500">Envoyée instantanément par email</p>
+                                                <h4 className="font-bold text-brand-dark">Recevoir mon étude</h4>
+                                                <p className="text-xs text-gray-500">Réponse immédiate</p>
                                             </div>
                                         </div>
-                                        <form onSubmit={handleLeadCapture}>
-                                            <input 
-                                                type="email" 
-                                                required
-                                                value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
-                                                placeholder="exemple@email.com" 
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-action-orange focus:bg-white transition-all mb-4 text-base"
-                                            />
-                                            <button 
-                                                disabled={isSubmitting}
-                                                className="w-full bg-action-orange hover:bg-action-hover text-white font-bold py-4 rounded-xl shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                            >
-                                                {isSubmitting ? (
-                                                    <Loader2 size={18} className="animate-spin" />
-                                                ) : (
-                                                    <>AFFICHER LE PRIX <ShieldCheck size={18} /></>
-                                                )}
-                                            </button>
-                                        </form>
+                                        
+                                        <HubSpotForm onSuccess={handleHubSpotSuccess} submitButtonText="AFFICHER MON PRIX" />
+
                                     </div>
                                 </>
                             ) : (
@@ -402,10 +367,15 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                         </div>
                                     </div>
 
-                                    <button className="w-full bg-white text-brand-dark hover:bg-gray-100 font-bold py-4 rounded-xl shadow-lg transition-all mb-4 text-sm md:text-base">
+                                    <a 
+                                        href="https://cal.com/leparquetparisien/diagnostic"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block w-full text-center bg-white text-brand-dark hover:bg-gray-100 font-bold py-4 rounded-xl shadow-lg transition-all mb-4 text-sm md:text-base cursor-pointer"
+                                    >
                                         RÉSERVER CE TARIF MAINTENANT
-                                    </button>
-                                    <button onClick={() => { setIsEmailSent(false); setState(s => ({...s, step: 1})); }} className="text-xs md:text-sm text-gray-400 hover:text-white underline">
+                                    </a>
+                                    <button onClick={() => { setIsFormSubmitted(false); setState(s => ({...s, step: 1})); }} className="text-xs md:text-sm text-gray-400 hover:text-white underline">
                                         Recommencer une estimation
                                     </button>
                                 </div>

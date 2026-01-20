@@ -79,6 +79,79 @@
       .animate-slide-in-left {
         animation: slideInLeft 0.4s ease-out;
       }
+
+      /* --- HUBSPOT CUSTOM STYLING --- */
+      /* Override HubSpot default styles to match 'Le Parquet Parisien' theme */
+      
+      .hs-form-frame {
+        width: 100%;
+      }
+
+      /* Inputs */
+      body .hs-input {
+        width: 100% !important;
+        padding: 12px 16px !important;
+        border: 1px solid #E5E7EB !important; /* gray-200 */
+        border-radius: 0.75rem !important; /* rounded-xl */
+        background-color: #F9FAFB !important; /* gray-50 */
+        color: #222222 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        transition: all 0.2s !important;
+        margin-bottom: 12px !important;
+      }
+      
+      body .hs-input:focus {
+        border-color: #F97316 !important; /* action-orange */
+        background-color: #FFFFFF !important;
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2) !important;
+      }
+
+      /* Labels */
+      body .hs-form-field > label {
+        display: block !important;
+        font-size: 0.875rem !important;
+        font-weight: 700 !important;
+        color: #222222 !important;
+        margin-bottom: 4px !important;
+      }
+      
+      /* Submit Button */
+      body .hs-button {
+        width: 100% !important;
+        background-color: #F97316 !important; /* action-orange */
+        color: white !important;
+        font-weight: 700 !important;
+        padding: 14px 24px !important;
+        border-radius: 0.75rem !important;
+        border: none !important;
+        cursor: pointer !important;
+        transition: all 0.2s !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        font-size: 0.875rem !important;
+        margin-top: 10px !important;
+      }
+      
+      body .hs-button:hover {
+        background-color: #EA580C !important; /* orange-600 */
+        transform: translateY(-1px) !important;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+      }
+
+      /* Hide HubSpot Branding if possible or minimize it */
+      body .hubspot-link__container {
+        display: none !important;
+      }
+      
+      /* Error messages */
+      body .hs-error-msgs {
+        list-style: none !important;
+        padding: 0 !important;
+        margin: 4px 0 12px 0 !important;
+        color: #EF4444 !important; /* red-500 */
+        font-size: 0.75rem !important;
+      }
     </style>
   <script type="importmap">
 {
