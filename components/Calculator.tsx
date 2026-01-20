@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Loader2, ArrowRight, ShieldCheck, Mail, TrendingUp, Info, AlertCircle, Phone, BedDouble, Sofa, Home, Building2, Warehouse, Sparkles, Hammer, Wrench, Timer, Users, Star, CheckCircle2 } from 'lucide-react';
 import { calculateEstimate } from '../services/geminiService';
+import { insertLead } from '../services/supabaseClient';
 import { CalculatorState } from '../types';
 
 interface CalculatorProps {
@@ -31,6 +32,7 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
   const [email, setEmail] = useState('');
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [timeLeft, setTimeLeft] = useState({ hours: 23, minutes: 59, seconds: 59 });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (initialService) {
@@ -76,9 +78,29 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
     }, 1500);
   };
 
-  const handleLeadCapture = (e: React.FormEvent) => {
+  const handleLeadCapture = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(email) setIsEmailSent(true);
+    if (!email) return;
+
+    setIsSubmitting(true);
+
+    // Save to Supabase
+    await insertLead({
+      email: email,
+      source: 'calculator',
+      zip_code: initialZip || undefined,
+      service_type: state.type,
+      surface_area: state.surface,
+      current_condition: state.condition,
+      finish_preference: state.finish,
+      estimated_price_min: state.result?.minPrice,
+      estimated_price_max: state.result?.maxPrice,
+      estimated_duration: state.result?.duration,
+      marketing_opt_in: true // Implicit opt-in for estimate delivery
+    });
+
+    setIsSubmitting(false);
+    setIsEmailSent(true);
   };
 
   return (
@@ -344,8 +366,15 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                                 placeholder="exemple@email.com" 
                                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-action-orange focus:bg-white transition-all mb-4 text-base"
                                             />
-                                            <button className="w-full bg-action-orange hover:bg-action-hover text-white font-bold py-4 rounded-xl shadow-lg transition-all flex justify-center items-center gap-2">
-                                                AFFICHER LE PRIX <ShieldCheck size={18} />
+                                            <button 
+                                                disabled={isSubmitting}
+                                                className="w-full bg-action-orange hover:bg-action-hover text-white font-bold py-4 rounded-xl shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                            >
+                                                {isSubmitting ? (
+                                                    <Loader2 size={18} className="animate-spin" />
+                                                ) : (
+                                                    <>AFFICHER LE PRIX <ShieldCheck size={18} /></>
+                                                )}
                                             </button>
                                         </form>
                                     </div>

@@ -10,6 +10,7 @@ Application web haut de gamme pour la rénovation de parquet à Paris, intégran
 - Calcul instantané basé sur les tarifs officiels des artisans parisiens.
 - Logique stricte : 35€/m² (Bon/Moyen) vs 40€/m² (Abîmé).
 - Génération de devis avec fourchette de prix et durée estimée.
+- **Capture de Lead** : Enregistrement automatique dans Supabase.
 
 ### 2. Visualisateur IA (Avant/Après) 🎨
 - **Technologie** : Google Gemini 2.5 Flash Image.
@@ -32,18 +33,29 @@ Application web haut de gamme pour la rénovation de parquet à Paris, intégran
 - **Framework** : React 19
 - **Styling** : Tailwind CSS
 - **AI/ML** : Google GenAI SDK (`@google/genai`)
+- **Backend/DB** : Supabase (PostgreSQL)
 - **Icons** : Lucide React
 
 ## 📦 Installation & Déploiement
 
-### Configuration de l'environnement
-Pour que les fonctionnalités IA fonctionnent (Visualisateur, Chatbot), vous devez configurer la variable d'environnement :
-`API_KEY` = `votre_clé_google_ai`
+### 1. Configuration de l'environnement
+Renommez `.env` (si nécessaire) et remplissez les clés :
+```bash
+API_KEY=votre_clé_google_gemini
+SUPABASE_URL=https://thyaywnhzaxckvigqjya.supabase.co
+SUPABASE_ANON_KEY=votre_clé_supabase_anon
+```
 
-### Déploiement (Netlify)
+### 2. Base de Données (Supabase)
+Pour que la capture de leads fonctionne :
+1. Allez dans votre dashboard Supabase > **SQL Editor**.
+2. Copiez le contenu du fichier `supabase_schema.sql` de ce projet.
+3. Exécutez le script pour créer la table `leads` et configurer la sécurité (RLS).
+
+### 3. Déploiement (Netlify)
 1. Pousser ce code sur GitHub.
 2. Connecter le repo à Netlify.
-3. Dans **Site Settings > Environment Variables**, ajouter `API_KEY`.
+3. Dans **Site Settings > Environment Variables**, ajouter `API_KEY`, `SUPABASE_URL`, et `SUPABASE_ANON_KEY`.
 4. Déployer.
 
 ## 📝 Auteur

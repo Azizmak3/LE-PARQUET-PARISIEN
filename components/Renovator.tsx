@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Sparkles, MoveHorizontal, Lock, ArrowRight, Image as ImageIcon, CheckCircle2, Download, Mail, Scan, AlertCircle } from 'lucide-react';
+import { Upload, Sparkles, MoveHorizontal, Lock, ArrowRight, Image as ImageIcon, CheckCircle2, Download, Mail, Scan, AlertCircle, Key, Loader2 } from 'lucide-react';
 import { renovateImage } from '../services/geminiService';
+import { insertLead } from '../services/supabaseClient';
 
 const EXAMPLES = [
   {
@@ -34,6 +35,8 @@ const Renovator: React.FC = () => {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [selectedFinish, setSelectedFinish] = useState('vitrification-mat');
   const [imgLoadError, setImgLoadError] = useState(false);
+  const [email, setEmail] = useState(''); // Captured for DB
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Track container width for the nested image to prevent squishing (Desktop only)
   const [containerWidth, setContainerWidth] = useState<number>(0);
@@ -100,7 +103,6 @@ const Renovator: React.FC = () => {
         if (imagePreview && imagePreview.startsWith('blob:')) {
             URL.revokeObjectURL(imagePreview);
         }
-        // processedImage is now likely a data URI, so revocation is optional but good practice if it was a blob
         if (processedImage && processedImage.startsWith('blob:')) {
             URL.revokeObjectURL(processedImage);
         }
@@ -204,6 +206,23 @@ const Renovator: React.FC = () => {
     await handleProcess(finishId);
   };
 
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email.includes('@')) {
+        setIsSubmitting(true);
+        
+        await insertLead({
+          email: email,
+          source: 'renovator',
+          renovation_style: selectedFinish,
+          marketing_opt_in: true // Implicit opt-in
+        });
+
+        setIsSubmitting(false);
+        setIsLocked(false);
+    }
+  };
+
   const handleDownload = () => {
     if (!processedImage) return;
     const link = document.createElement('a');
@@ -212,11 +231,6 @@ const Renovator: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const handleEmail = () => {
-    const email = prompt('Entrez votre email pour recevoir la simulation HD :');
-    if (email) alert(`✓ Visualisation HD envoyée à ${email} !`);
   };
 
   const resetUpload = () => {
@@ -231,6 +245,7 @@ const Renovator: React.FC = () => {
     setIsLocked(false);
     setImgLoadError(false);
     fileRef.current = null;
+    setEmail('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -378,7 +393,7 @@ const Renovator: React.FC = () => {
                         </div>
                         )}
 
-                        {/* LOCKED STATE */}
+                        {/* LOCKED STATE - UPGRADED TO CAPTURE EMAIL */}
                         {isLocked && imageReadyToDisplay && !error && (
                             <div className="absolute inset-0 z-40 backdrop-blur-xl bg-white/40 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
                                 <div className="bg-white p-6 md:p-10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] max-w-md w-full border border-gray-100 transform scale-100 hover:scale-[1.02] transition-transform duration-300">
@@ -387,17 +402,36 @@ const Renovator: React.FC = () => {
                                     </div>
                                     <h3 className="text-xl md:text-2xl font-bold text-brand-dark mb-2">🔒 Aperçu généré</h3>
                                     <p className="text-gray-500 mb-6 md:mb-8 leading-relaxed text-sm md:text-base">
-                                        Débloquez le avant/après et recevez l'estimation associée.
+                                        Entrez votre email pour débloquer le résultat HD et recevoir votre devis.
                                     </p>
-                                    <div className="space-y-3">
+                                    
+                                    <form onSubmit={handleUnlock} className="space-y-3">
+                                        <input 
+                                            type="email" 
+                                            placeholder="votre@email.com"
+                                            required
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-action-orange focus:bg-white transition-all text-center"
+                                        />
                                         <button 
-                                            onClick={() => setIsLocked(false)} 
-                                            className="w-full bg-brand-dark hover:bg-black text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 text-sm md:text-base"
+                                            type="submit"
+                                            disabled={isSubmitting}
+                                            className="w-full bg-brand-dark hover:bg-black text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 text-sm md:text-base disabled:opacity-70 disabled:cursor-not-allowed"
                                         >
-                                            <CheckCircle2 size={18} />
-                                            DÉBLOQUER MON ESTIMATION
+                                            {isSubmitting ? (
+                                                <Loader2 size={18} className="animate-spin" />
+                                            ) : (
+                                                <>
+                                                    <Key size={18} />
+                                                    DÉBLOQUER & VOIR
+                                                </>
+                                            )}
                                         </button>
-                                    </div>
+                                        <p className="text-[10px] text-gray-400 mt-2 flex items-center justify-center gap-1">
+                                           <Lock size={10} /> Vos données restent confidentielles.
+                                        </p>
+                                    </form>
                                 </div>
                             </div>
                         )}
@@ -516,7 +550,10 @@ const Renovator: React.FC = () => {
                                 <button onClick={handleDownload} className="flex flex-col items-center justify-center gap-1 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-xs font-bold text-gray-600 active:scale-95 transition-transform">
                                     <Download size={16} /> Télécharger
                                 </button>
-                                <button onClick={handleEmail} className="flex flex-col items-center justify-center gap-1 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-xs font-bold text-gray-600 active:scale-95 transition-transform">
+                                <button 
+                                    onClick={() => alert(`Devis envoyé à ${email || 'votre adresse'}`)}
+                                    className="flex flex-col items-center justify-center gap-1 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-xs font-bold text-gray-600 active:scale-95 transition-transform"
+                                >
                                     <Mail size={16} /> Envoyer
                                 </button>
                              </div>
