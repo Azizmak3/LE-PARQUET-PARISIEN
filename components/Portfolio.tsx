@@ -45,7 +45,7 @@ const PortfolioItem: React.FC<{ project: any }> = ({ project }) => {
           className="absolute inset-0 overflow-hidden"
           style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
         >
-          <img src={project.before} alt="Before" className="w-full h-full object-cover grayscale brightness-90" />
+          <img src={project.before} alt="Before" className="w-full h-full object-cover" />
           <div className="absolute top-4 left-4 bg-black/60 text-white px-2 py-1 md:px-3 md:py-1 rounded text-[10px] md:text-xs font-bold tracking-widest backdrop-blur-sm shadow-sm">AVANT</div>
         </div>
   
