@@ -30,21 +30,23 @@ const Hero: React.FC<HeroProps> = ({ onStartEstimate }) => {
 
       <div className="relative z-10 container mx-auto px-4 text-center">
         
-        {/* Availability Signal with Pulse Animation */}
-        <div className="urgency-badge inline-flex items-center gap-2 text-white px-4 py-2 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-6 md:mb-8 shadow-lg">
-            <Clock size={12} /> Urgence : Plus que 3 créneaux cette semaine
+        {/* Availability Signal */}
+        <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-6 md:mb-8">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            Plus que 3 créneaux cette semaine
         </div>
 
         {/* Headline - Problem First & Outcome Driven */}
         <h1 className="text-3xl md:text-6xl font-sans font-bold text-white mb-4 leading-tight shadow-sm max-w-5xl mx-auto">
-          Parquet abîmé ? Rayé ? <br className="md:hidden" /> Terni ? <br/>
-          <span className="text-action-orange">Remise à neuf en 48h.</span>
+          Votre parquet perd de la valeur. <br className="md:hidden" /> En ce moment.
         </h1>
         
         {/* Subhead - Speed & Certainty */}
         <p className="text-base md:text-xl text-gray-300 max-w-3xl mx-auto mb-8 md:mb-10 font-sans font-medium px-2">
-          Ne perdez pas de temps. Artisans parisiens experts.
-          <br/><span className="text-white font-bold">Obtenez votre tarif définitif maintenant.</span>
+          Les micro-dégradations s'accumulent en silence. Obtenez votre diagnostic exact en 60 secondes et sachez exactement ce que vous risquez.
         </p>
 
         {/* Conversion Form */}
@@ -103,7 +105,7 @@ const Hero: React.FC<HeroProps> = ({ onStartEstimate }) => {
                 <Clock size={10} /> 30 secondes • <Lock size={10} /> Données non partagées
             </p>
             <p className="text-action-orange font-bold animate-pulse">
-                🔥 14 dossiers ouverts à Paris ce matin
+                14 dossiers ouverts à Paris ce matin · 4.9/5 · 523 chantiers
             </p>
         </div>
 

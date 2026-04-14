@@ -97,6 +97,14 @@
         animation: urgency-pulse 2s infinite;
       }
 
+      @keyframes subtle-glow-pulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 90, 0, 0); }
+        50% { transform: scale(1.005); box-shadow: 0 0 15px rgba(255, 90, 0, 0.4); }
+      }
+      .animate-subtle-glow {
+        animation: subtle-glow-pulse 2.5s infinite ease-in-out;
+      }
+
       /* Feature: Slide In Left */
       @keyframes slideInLeft {
         from {

@@ -459,7 +459,7 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
 
                 <div className="mt-6 bg-blue-50 p-4 rounded-xl text-xs text-blue-800 leading-relaxed flex gap-2">
                     <div className="shrink-0 pt-0.5"><AlertCircle size={14} /></div>
-                    Algorithme calibré sur 850+ chantiers parisiens (2024). Précision 96%.
+                    Algorithme calibré sur 850+ chantiers parisiens (2026). Précision 96%.
                 </div>
             </div>
 

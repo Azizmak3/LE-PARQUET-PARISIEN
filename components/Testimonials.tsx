@@ -8,7 +8,8 @@ const REVIEWS = [
     type: "Rénovation Point de Hongrie",
     date: "Décembre 2024",
     img: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150&h=150",
-    text: "On ne reconnaît plus notre salon. Le parquet du 19ème siècle brille comme au premier jour. L'équipe a été d'une discrétion absolue et le chantier a duré exactement les 3 jours annoncés. Un sans faute."
+    text: "On ne reconnaît plus notre salon. Le parquet du 19ème siècle brille comme au premier jour. L'équipe a été d'une discrétion absolue et le chantier a duré exactement les 3 jours annoncés. Un sans faute.",
+    problemText: "Problème détecté : Micro-fissures détectées en visite annuelle. Rénovation évitée : 1 800€."
   },
   {
     name: "Sophie D.",
@@ -16,7 +17,8 @@ const REVIEWS = [
     type: "Pose Parquet Chêne Massif",
     date: "Janvier 2025",
     img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150&h=150",
-    text: "J'avais peur de la poussière mais ils ont utilisé des machines aspirantes ultra-efficaces. Le rendu est magnifique et le prix était 20% moins cher que les autres devis que j'avais reçus."
+    text: "J'avais peur de la poussière mais ils ont utilisé des machines aspirantes ultra-efficaces. Le rendu est magnifique et le prix était 20% moins cher que les autres devis que j'avais reçus.",
+    problemText: "Problème détecté : Vitrification écaillée zone entrée. Traitement préventif : 0€ supplémentaire."
   },
   {
     name: "Marc-Olivier P.",
@@ -24,7 +26,8 @@ const REVIEWS = [
     type: "Vitrification Mate",
     date: "Novembre 2024",
     img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150&h=150",
-    text: "Le calculateur en ligne m'a donné un prix quasi exact. L'artisan est venu valider le lendemain et les travaux ont commencé la semaine suivante. Efficacité redoutable pour Paris."
+    text: "Le calculateur en ligne m'a donné un prix quasi exact. L'artisan est venu valider le lendemain et les travaux ont commencé la semaine suivante. Efficacité redoutable pour Paris.",
+    problemText: "Problème détecté : Délai respecté à 48h. Chantier terminé avant la vente. Estimation gain prix : +12 000€."
   }
 ];
 
@@ -34,7 +37,7 @@ const Testimonials: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="text-center mb-8 md:mb-16">
            <h2 className="text-3xl md:text-5xl font-sans font-bold text-brand-dark mb-4">Ils nous ont fait confiance</h2>
-           <p className="text-xl text-gray-500">Note moyenne de <span className="text-action-orange font-bold">4.9/5</span> sur plus de 500 chantiers.</p>
+           <p className="text-xl text-gray-500">4.9/5 · 523 chantiers à Paris · 0 litige enregistré</p>
         </div>
 
         {/* MOBILE: Hint for scrolling */}
@@ -65,6 +68,7 @@ const Testimonials: React.FC = () => {
                             <div className="font-bold text-brand-dark">{review.name}</div>
                             <div className="text-xs text-gray-400 font-bold uppercase">{review.loc}</div>
                             <div className="text-xs text-action-orange mt-0.5">{review.type}</div>
+                            <div className="text-[11px] text-action-orange italic mt-1.5 leading-tight">{review.problemText}</div>
                         </div>
                     </div>
                 </div>

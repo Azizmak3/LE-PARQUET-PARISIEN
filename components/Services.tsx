@@ -15,15 +15,17 @@ const services = [
       "Rendu Mat, Satiné ou Huilé",
       "Garantie tenue 10 ans"
     ],
-    badge: "Le Plus Demandé",
-    isPremium: true
+    badge: "Meilleur Rapport Qualité/Prix",
+    isPremium: true,
+    lossFraming: "Attendre aggrave les dégâts — et le tarif.",
+    premiumSubtext: "Attendre aggrave les dégâts. Chaque mois sans intervention coûte plus cher."
   },
   {
     id: 'pose',
     icon: <Layers className="w-6 h-6 text-brand-blue" />,
     title: "Pose de Parquet",
     subtitle: "Massif ou Contrecollé",
-    price: "65€",
+    price: "30€",
     unit: "/m²",
     features: [
       "Pose collée (DTU 51.2)",
@@ -32,23 +34,8 @@ const services = [
       "Isolation phonique offerte"
     ],
     badge: null,
-    isPremium: false
-  },
-  {
-    id: 'teinte',
-    icon: <PaintRoller className="w-6 h-6 text-orange-600" />,
-    title: "Mise en Teinte",
-    subtitle: "Décoration & Design",
-    price: "Sur Devis",
-    unit: "",
-    features: [
-      "Nuancier de 50 teintes",
-      "Huile dure écologique",
-      "Effet bois brut ou vieilli",
-      "Échantillon test sur place"
-    ],
-    badge: "Tendance 2026",
-    isPremium: false
+    isPremium: false,
+    lossFraming: "Un sol mal posé se dégrade 3× plus vite."
   },
   {
     id: 'water-damage',
@@ -64,7 +51,8 @@ const services = [
       "Intervention d'urgence 24h"
     ],
     badge: "Agréé Assurances",
-    isPremium: false
+    isPremium: false,
+    lossFraming: "Chaque heure sans intervention = dégâts irréversibles."
   }
 ];
 
@@ -79,25 +67,32 @@ const Services: React.FC = () => {
       <div className="container mx-auto px-4">
         
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-end mb-8 md:mb-12 gap-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-12 gap-4 md:gap-6">
             <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
                    <Star size={12} className="text-action-orange" /> Tarifs Officiels 2026
                 </div>
-                <h2 className="text-3xl md:text-4xl font-sans font-bold text-brand-dark leading-tight">
-                    Des forfaits clairs. <br/>
-                    <span className="text-gray-400">Aucune surprise à la facture.</span>
+                <h2 className="text-2xl md:text-4xl font-sans font-bold text-brand-dark leading-tight">
+                    Chaque travail a un prix juste. <br className="hidden md:block"/>
+                    <span className="text-gray-400">Voici le vôtre.</span>
                 </h2>
-                <p className="text-gray-500 text-sm md:text-lg mt-4 hidden md:block">
-                    Nos prix incluent la main d'œuvre, les matériaux professionnels et l'assurance décennale.
+                <p className="text-gray-500 text-sm md:text-lg mt-3 md:mt-4">
+                    Main d'œuvre + matériaux professionnels + assurance décennale. Aucun frais caché.
                 </p>
             </div>
             
-            <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+            <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-auto mt-2 md:mt-0">
                  <div className="flex items-center justify-center w-full md:w-auto gap-2 text-xs font-bold text-green-700 bg-green-50 px-4 py-2 rounded-full border border-green-100 animate-pulse">
                     <Clock size={14} /> Disponibilités : Semaine du 12 Mars
                 </div>
             </div>
+        </div>
+        
+        {/* SECTION LABEL */}
+        <div className="mb-6 hidden md:block">
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">INTERVENTION PONCTUELLE</h3>
+            <p className="text-gray-500 text-sm mb-2">Pour les rénovations, poses et urgences — tarif définitif après visite.</p>
+            <p className="text-action-orange text-sm italic font-medium">Le prix que vous voyez est le prix que vous payez. Aucun supplément après visite.</p>
         </div>
         
         {/* MOBILE: Hint for scrolling */}
@@ -106,12 +101,12 @@ const Services: React.FC = () => {
         </div>
 
         {/* Cards Grid / Carousel on Mobile */}
-        <div className="flex overflow-x-auto pb-8 gap-4 snap-x snap-mandatory md:grid md:grid-cols-2 lg:grid-cols-4 md:overflow-visible md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 no-scrollbar">
+        <div className="flex overflow-x-auto pt-6 pb-8 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible md:py-0 -mx-4 px-4 md:mx-0 md:px-0 no-scrollbar">
           {services.map((s) => (
             <div 
                 key={s.id} 
                 className={`
-                    min-w-[85vw] md:min-w-0 snap-center
+                    min-w-[85vw] md:min-w-0 shrink-0 snap-center
                     relative rounded-3xl p-6 flex flex-col transition-all duration-300 group cursor-pointer border
                     ${s.isPremium 
                         ? 'bg-brand-dark text-white border-brand-dark shadow-[0_20px_50px_rgba(0,0,0,0.3)] transform md:-translate-y-4' 
@@ -156,6 +151,9 @@ const Services: React.FC = () => {
                       <span className="text-sm font-medium opacity-60">{s.unit}</span>
                   </div>
                   <p className="text-[10px] opacity-60 mt-2">Tarif indicatif. Le prix final dépend de l'état réel.</p>
+                  {s.premiumSubtext && (
+                    <p className="text-[11px] italic text-gray-400 mt-2 leading-tight">{s.premiumSubtext}</p>
+                  )}
               </div>
 
               {/* Features */}
@@ -173,18 +171,25 @@ const Services: React.FC = () => {
                 href="#calculator"
                 onClick={handleScrollToCalculator}
                 className={`
-                    w-full py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer
+                    w-full py-4 font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer mb-3
                     ${s.isPremium 
-                        ? 'bg-action-orange text-white hover:bg-white hover:text-brand-dark' 
-                        : 'bg-brand-dark text-white hover:bg-black'
+                        ? 'text-action-orange hover:text-white' 
+                        : 'text-brand-dark hover:text-action-orange'
                     }
                 `}
               >
-                 Simuler mon prix <ArrowRight size={16} />
+                 Obtenir mon prix exact <ArrowRight size={16} />
               </a>
+              
+              {/* Loss Framing */}
+              <p className={`text-[11px] italic text-center leading-tight font-medium ${s.isPremium ? 'text-action-orange' : 'text-action-orange'}`}>
+                {s.lossFraming}
+              </p>
 
             </div>
           ))}
+          {/* Spacer for mobile right padding */}
+          <div className="w-1 shrink-0 md:hidden"></div>
         </div>
         
         {/* PRESSURE SENTENCE */}

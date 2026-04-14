@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Hero from './components/Hero';
 import Services from './components/Services';
 import Calculator from './components/Calculator';
@@ -10,6 +10,7 @@ import Chatbot from './components/Chatbot';
 import ProSection from './components/ProSection';
 import SocialProofToast from './components/SocialProofToast';
 import WhatsAppWidget from './components/WhatsAppWidget';
+import EspacePro from './components/EspacePro';
 import { Phone, CheckCircle, Menu, X, TrendingUp, ChevronDown } from 'lucide-react';
 
 interface NavLinkProps {
@@ -20,7 +21,15 @@ interface NavLinkProps {
 }
 
 const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+  if (href.startsWith('/')) return; // Let normal navigation happen for actual routes
   e.preventDefault();
+  
+  // If we are not on the home page and trying to scroll to a hash, go to home first
+  if (window.location.pathname !== '/' && href.startsWith('#')) {
+    window.location.href = '/' + href;
+    return;
+  }
+
   const targetId = href.replace('#', '');
   const element = document.getElementById(targetId);
   if (element) {
@@ -49,6 +58,34 @@ const NavLink: React.FC<NavLinkProps> = ({ href, children, badge, onClick }) => 
 const App: React.FC = () => {
   const [estimateData, setEstimateData] = useState<{zip: string, service: string} | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [availableSlots, setAvailableSlots] = useState(3);
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    
+    // Override pushState and replaceState to intercept navigation
+    const originalPushState = window.history.pushState;
+    window.history.pushState = function() {
+      originalPushState.apply(this, arguments as any);
+      handleLocationChange();
+    };
+
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.history.pushState = originalPushState;
+    };
+  }, []);
+
+  const navigateTo = (path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+    window.scrollTo(0, 0);
+  };
 
   const handleStartEstimate = (zip: string, service: string) => {
     setEstimateData({ zip, service });
@@ -58,19 +95,35 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white font-sans text-brand-dark">
-      {/* URGENCY TOP BAR */}
-      <div className="bg-brand-dark text-white py-2 text-center text-xs font-bold tracking-wide px-4 font-sans border-b border-gray-800">
-        <span className="inline-block animate-pulse text-action-orange mr-2">●</span> 
-        <span className="text-action-orange font-extrabold uppercase mr-1">OFFRE FLASH :</span> 
-        Diagnostic technique <span className="underline decoration-action-orange decoration-2 underline-offset-2">OFFERT</span> (valeur 150€) pour les 3 prochaines demandes.
-      </div>
+      {/* STICKY HEADER WRAPPER */}
+      <div className="sticky top-0 z-50 w-full flex flex-col shadow-sm">
+        {/* HIGH-CONVERTING ANNOUNCEMENT BAR */}
+        <button 
+          onClick={(e) => handleSmoothScroll(e as any, '#calculator')}
+          className="w-full min-h-[40px] md:min-h-[50px] md:h-[60px] bg-[#ff5a00] hover:bg-[#e14e00] text-white font-bold flex items-center justify-center transition-colors cursor-pointer group px-2 py-1.5 md:py-0 animate-subtle-glow"
+        >
+          <div className="flex flex-nowrap items-center justify-center gap-1.5 md:gap-4 text-[9px] sm:text-xs md:text-sm text-center w-full max-w-full overflow-hidden">
+             <div className="flex items-center whitespace-nowrap shrink overflow-hidden">
+               <span className="flex h-1.5 w-1.5 md:h-2.5 md:w-2.5 relative mr-1.5 md:mr-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 md:h-2.5 w-1.5 md:w-2.5 bg-white"></span>
+               </span>
+               <span className="leading-tight truncate">
+                 PLUS QUE {availableSlots} CRÉNEAUX <span className="hidden sm:inline">CETTE SEMAINE</span> <span className="hidden sm:inline">|</span><span className="sm:hidden"> - </span> Diagnostic OFFERT <span className="hidden sm:inline">(150€)</span>
+               </span>
+             </div>
+             <span className="bg-white text-[#ff5a00] px-2 py-1 md:px-4 md:py-2 rounded-full font-black text-[9px] sm:text-[10px] md:text-xs shadow-sm group-hover:bg-gray-50 transition-colors uppercase tracking-wide whitespace-nowrap shrink-0">
+               Obtenir mon prix
+             </span>
+          </div>
+        </button>
 
-      {/* Main Nav */}
-      <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="container mx-auto px-4 h-20 flex justify-between items-center">
+        {/* Main Nav */}
+        <nav className="bg-white border-b border-gray-200">
+          <div className="container mx-auto px-4 h-20 flex justify-between items-center">
           
           {/* Logo */}
-          <div className="flex flex-col cursor-pointer z-50 group select-none" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <div className="flex flex-col cursor-pointer z-50 group select-none" onClick={() => { navigateTo('/'); }}>
             <span className="font-sans font-black text-2xl md:text-3xl leading-none tracking-tighter text-brand-dark group-hover:scale-[1.02] transition-transform duration-300">
               LE PARQUET
             </span>
@@ -84,7 +137,13 @@ const App: React.FC = () => {
             <NavLink href="#services" onClick={() => setMobileMenuOpen(false)}>TARIFS</NavLink>
             <NavLink href="#renovator" badge="IA" onClick={() => setMobileMenuOpen(false)}>SIMULATEUR 3D</NavLink>
             <NavLink href="#portfolio" onClick={() => setMobileMenuOpen(false)}>RÉALISATIONS</NavLink>
-            <NavLink href="#pro" onClick={() => setMobileMenuOpen(false)}>ESPACE PRO</NavLink>
+            <a 
+              href="#pro" 
+              onClick={(e) => { setMobileMenuOpen(false); handleSmoothScroll(e, '#pro'); }}
+              className="text-sm font-bold text-gray-600 hover:text-brand-dark hover:bg-gray-50 px-3 py-2 rounded-lg transition-all flex items-center gap-2 group relative font-sans cursor-pointer"
+            >
+              ESPACE PRO
+            </a>
           </div>
 
           {/* Desktop CTA */}
@@ -153,9 +212,9 @@ const App: React.FC = () => {
                       <a 
                         href="#pro" 
                         onClick={(e) => { setMobileMenuOpen(false); handleSmoothScroll(e, '#pro'); }} 
-                        className="text-lg font-bold text-brand-blue hover:text-blue-900 transition-colors"
+                        className="text-lg font-bold text-brand-dark hover:text-action-orange transition-colors flex items-center gap-2"
                       >
-                        Espace Pro / Agences
+                        Espace Pro
                       </a>
                    </div>
             
@@ -174,46 +233,52 @@ const App: React.FC = () => {
           )}
         </div>
       </nav>
+      </div>
 
       <main>
-        {/* HERO */}
-        <Hero onStartEstimate={handleStartEstimate} />
+        {currentPath === '/espace-pro' ? (
+          <EspacePro />
+        ) : (
+          <>
+            {/* HERO */}
+            <Hero onStartEstimate={handleStartEstimate} />
 
-        {/* TRUST BAR */}
-        <div className="bg-white py-6 border-b border-gray-100 shadow-sm relative z-20 font-sans">
-          <div className="container mx-auto px-4 flex flex-wrap justify-center gap-6 md:gap-12 text-xs font-bold text-gray-500 uppercase tracking-widest">
-            <span className="flex items-center gap-2"><CheckCircle size={16} className="text-green-600"/> Prix Encadrés</span>
-            <span className="flex items-center gap-2"><CheckCircle size={16} className="text-green-600"/> Sans Engagement</span>
-            <span className="flex items-center gap-2"><CheckCircle size={16} className="text-green-600"/> Assurance Incluse</span>
-          </div>
-        </div>
+            {/* TRUST BAR */}
+            <div className="bg-white py-6 border-b border-gray-100 shadow-sm relative z-20 font-sans">
+              <div className="container mx-auto px-4 flex flex-wrap justify-center gap-6 md:gap-12 text-xs font-bold text-gray-500 uppercase tracking-widest">
+                <span className="flex items-center gap-2"><CheckCircle size={16} className="text-green-600"/> Prix Encadrés</span>
+                <span className="flex items-center gap-2"><CheckCircle size={16} className="text-green-600"/> Sans Engagement</span>
+                <span className="flex items-center gap-2"><CheckCircle size={16} className="text-green-600"/> Assurance Incluse</span>
+              </div>
+            </div>
 
-        {/* AI LEAD MAGNET (RENOVATOR) - MOVED UP FOR VISIBILITY */}
-        <Renovator />
+            {/* AI LEAD MAGNET (RENOVATOR) - MOVED UP FOR VISIBILITY */}
+            <Renovator />
 
-        {/* SERVICES */}
-        <Services />
+            {/* SERVICES */}
+            <Services />
 
-        {/* CALCULATOR - Clean White Background */}
-        <div className="bg-white py-16">
-          <Calculator 
-            initialZip={estimateData?.zip} 
-            initialService={estimateData?.service} 
-          />
-        </div>
+            {/* CALCULATOR - Clean White Background */}
+            <div className="bg-white py-16">
+              <Calculator 
+                initialZip={estimateData?.zip} 
+                initialService={estimateData?.service} 
+              />
+            </div>
 
-        {/* PORTFOLIO */}
-        <Portfolio />
-        
-        {/* TESTIMONIALS */}
-        <Testimonials />
+            {/* PORTFOLIO */}
+            <Portfolio />
+            
+            {/* TESTIMONIALS */}
+            <Testimonials />
 
-        {/* PRO SECTION */}
-        <ProSection />
+            {/* PRO SECTION */}
+            <ProSection />
 
-        {/* FAQ */}
-        <FAQ />
-        
+            {/* FAQ */}
+            <FAQ />
+          </>
+        )}
       </main>
 
       <footer className="bg-brand-dark text-white py-12 text-sm border-t-4 border-action-orange font-sans">
@@ -247,11 +312,11 @@ const App: React.FC = () => {
           </div>
           <div>
             <a 
-              href="#pro" 
-              onClick={(e) => handleSmoothScroll(e, '#pro')}
+              href="/espace-pro" 
+              onClick={(e) => { e.preventDefault(); navigateTo('/espace-pro'); }}
               className="block w-full text-center py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded transition-colors border border-white/20"
             >
-                ACCÈS PARTENAIRES
+                ESPACE PROFESSIONNELS
             </a>
           </div>
         </div>
