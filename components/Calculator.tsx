@@ -392,8 +392,14 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                     <div className="space-y-3">
                                         <a 
                                             href="https://cal.com/leparquetparisien/diagnostic"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                if (typeof window !== 'undefined' && 'gtagSendEvent' in window) {
+                                                    (window as any).gtagSendEvent('https://cal.com/leparquetparisien/diagnostic');
+                                                } else {
+                                                    window.open("https://cal.com/leparquetparisien/diagnostic", "_blank");
+                                                }
+                                            }}
                                             className="block w-full text-center bg-white text-brand-dark hover:bg-gray-100 font-bold py-4 rounded-xl shadow-lg transition-all text-sm md:text-base cursor-pointer"
                                         >
                                             RÉSERVER MA VISITE GRATUITE
@@ -401,8 +407,15 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                         
                                         <a 
                                             href="https://wa.me/33614494907?text=Bonjour,%20j'ai%20eu%20mon%20estimation%20et%20je%20souhaite%20prendre%20rendez-vous."
-                                            target="_blank"
-                                            rel="noopener noreferrer"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                const url = "https://wa.me/33614494907?text=Bonjour,%20j'ai%20eu%20mon%20estimation%20et%20je%20souhaite%20prendre%20rendez-vous.";
+                                                if (typeof window !== 'undefined' && 'gtagSendEvent' in window) {
+                                                    (window as any).gtagSendEvent(url);
+                                                } else {
+                                                    window.open(url, "_blank");
+                                                }
+                                            }}
                                             className="block w-full text-center bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-4 rounded-xl shadow-lg transition-all text-sm md:text-base cursor-pointer flex items-center justify-center gap-2"
                                         >
                                            <Phone size={18} /> CONTACTER SUR WHATSAPP
