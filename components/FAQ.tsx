@@ -75,8 +75,7 @@ const FAQ: React.FC = () => {
                         Vous avez des doutes ? Voici les réponses aux questions les plus courantes de nos clients parisiens.
                     </p>
                     <a 
-                      href="#calculator" 
-                      onClick={handleScrollToCalculator}
+                      href="/devis" 
                       className="text-action-orange font-bold hover:underline text-sm md:text-base cursor-pointer"
                     >
                         Poser une autre question

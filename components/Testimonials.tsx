@@ -77,7 +77,7 @@ const Testimonials: React.FC = () => {
 
         {/* CLOSING CTA */}
         <div className="mt-8 md:mt-16 text-center">
-            <a href="#calculator" className="inline-flex items-center gap-2 px-8 py-4 bg-brand-dark text-white font-bold rounded-xl shadow-lg hover:bg-black transition-colors transform hover:-translate-y-1 text-sm md:text-base">
+            <a href="/devis" className="inline-flex items-center gap-2 px-8 py-4 bg-brand-dark text-white font-bold rounded-xl shadow-lg hover:bg-black transition-colors transform hover:-translate-y-1 text-sm md:text-base">
                 Rejoindre les clients satisfaits à Paris <ArrowRight size={18} />
             </a>
         </div>

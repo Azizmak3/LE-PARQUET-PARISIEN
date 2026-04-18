@@ -89,8 +89,17 @@ const App: React.FC = () => {
 
   const handleStartEstimate = (zip: string, service: string) => {
     setEstimateData({ zip, service });
-    const el = document.getElementById('calculator');
-    el?.scrollIntoView({ behavior: 'smooth' });
+    if (currentPath !== '/') {
+      navigateTo('/devis');
+    } else {
+      const el = document.getElementById('devis');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+        window.history.replaceState({}, '', '/devis');
+      } else {
+        navigateTo('/devis');
+      }
+    }
   };
 
   return (
@@ -99,7 +108,7 @@ const App: React.FC = () => {
       <div className="sticky top-0 z-50 w-full flex flex-col shadow-sm">
         {/* HIGH-CONVERTING ANNOUNCEMENT BAR */}
         <button 
-          onClick={(e) => handleSmoothScroll(e as any, '#calculator')}
+          onClick={(e) => { e.preventDefault(); navigateTo('/devis'); }}
           className="w-full min-h-[40px] md:min-h-[50px] md:h-[60px] bg-[#ff5a00] hover:bg-[#e14e00] text-white font-bold flex items-center justify-center transition-colors cursor-pointer group px-2 py-1.5 md:py-0 animate-subtle-glow"
         >
           <div className="flex flex-nowrap items-center justify-center gap-1.5 md:gap-4 text-[9px] sm:text-xs md:text-sm text-center w-full max-w-full overflow-hidden">
@@ -152,8 +161,8 @@ const App: React.FC = () => {
               <Phone size={16} /> 06 14 49 49 07
             </a>
             <a 
-              href="#calculator" 
-              onClick={(e) => handleSmoothScroll(e, '#calculator')}
+              href="/devis" 
+              onClick={(e) => { e.preventDefault(); navigateTo('/devis'); setMobileMenuOpen(false); }}
               className="bg-action-orange hover:bg-action-hover text-white px-6 py-3 rounded-lg font-bold text-sm transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-sans"
             >
               MON PRIX EXACT
@@ -221,8 +230,8 @@ const App: React.FC = () => {
                    {/* CTA */}
                    <div className="p-4 border-t border-gray-100 bg-gray-50">
                       <a 
-                        href="#calculator" 
-                        onClick={(e) => { setMobileMenuOpen(false); handleSmoothScroll(e, '#calculator'); }} 
+                        href="/devis" 
+                        onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); navigateTo('/devis'); }} 
                         className="block w-full py-3.5 bg-action-orange text-white font-bold text-center rounded-xl shadow-lg active:scale-95 transition-transform"
                       >
                         OBTENIR MON PRIX
@@ -238,6 +247,13 @@ const App: React.FC = () => {
       <main>
         {currentPath === '/espace-pro' ? (
           <EspacePro />
+        ) : currentPath === '/devis' ? (
+          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
+            <Calculator 
+              initialZip={estimateData?.zip} 
+              initialService={estimateData?.service} 
+            />
+          </div>
         ) : (
           <>
             {/* HERO */}
@@ -259,7 +275,7 @@ const App: React.FC = () => {
             <Services />
 
             {/* CALCULATOR - Clean White Background */}
-            <div className="bg-white py-16">
+            <div id="devis" className="bg-white py-16">
               <Calculator 
                 initialZip={estimateData?.zip} 
                 initialService={estimateData?.service} 
@@ -344,8 +360,8 @@ const App: React.FC = () => {
 
           {/* Main CTA - Price Simulation */}
           <a 
-            href="#calculator" 
-            onClick={(e) => handleSmoothScroll(e, '#calculator')}
+            href="/devis" 
+            onClick={(e) => { e.preventDefault(); navigateTo('/devis'); }}
             className="flex-1 bg-action-orange text-white font-bold text-sm h-12 rounded-xl flex items-center justify-center shadow-md active:scale-95 transition-transform"
           >
             SIMULER MON PRIX

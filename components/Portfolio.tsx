@@ -84,8 +84,7 @@ const PortfolioItem: React.FC<{ project: any }> = ({ project }) => {
         {/* OVERLAY CTA - HOVER ONLY (Desktop) or CLICK (Mobile) */}
         <div className="absolute inset-0 bg-brand-dark/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-30 pointer-events-none md:pointer-events-auto">
             <a 
-                href="#calculator" 
-                onClick={handleScrollToCalculator}
+                href="/devis" 
                 className="hidden md:flex bg-white text-brand-dark px-6 py-3 rounded-xl font-bold items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all hover:bg-gray-100 cursor-pointer"
             >
                 <Calculator size={18} /> Estimer ce résultat chez moi
@@ -153,8 +152,7 @@ const Portfolio: React.FC = () => {
         
         <div className="text-center mt-8 md:mt-12">
            <a 
-            href="#calculator" 
-            onClick={handleScrollToCalculator}
+            href="/devis" 
             className="inline-block px-6 py-3 md:px-8 md:py-4 bg-brand-dark text-white hover:bg-black transition-all rounded-xl font-bold shadow-lg transform hover:-translate-y-1 text-sm md:text-base cursor-pointer"
            >
              Estimer un projet similaire

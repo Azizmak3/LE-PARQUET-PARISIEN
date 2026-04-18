@@ -168,8 +168,7 @@ const Services: React.FC = () => {
 
               {/* DOMINANT CTA - UNIFIED */}
               <a 
-                href="#calculator"
-                onClick={handleScrollToCalculator}
+                href="/devis"
                 className={`
                     w-full py-4 font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer mb-3
                     ${s.isPremium 
@@ -211,8 +210,7 @@ const Services: React.FC = () => {
                 </div>
             </div>
             <a 
-                href="#calculator" 
-                onClick={handleScrollToCalculator}
+                href="/devis" 
                 className="w-full md:w-auto text-center px-6 py-3 bg-white border-2 border-brand-dark text-brand-dark font-bold rounded-lg hover:bg-brand-dark hover:text-white transition-colors text-sm cursor-pointer"
             >
                 Lancer le calculateur →
