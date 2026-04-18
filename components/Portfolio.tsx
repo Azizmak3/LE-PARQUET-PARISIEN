@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MoveHorizontal, MapPin, Clock, Tag, Calculator } from 'lucide-react';
+import { MoveHorizontal, MapPin, Clock, Tag, Calculator, Instagram } from 'lucide-react';
 
 const projects = [
   { 
@@ -150,12 +150,21 @@ const Portfolio: React.FC = () => {
           {projects.map(p => <PortfolioItem key={p.id} project={p} />)}
         </div>
         
-        <div className="text-center mt-8 md:mt-12">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-4 mt-8 md:mt-12">
            <a 
             href="/devis" 
-            className="inline-block px-6 py-3 md:px-8 md:py-4 bg-brand-dark text-white hover:bg-black transition-all rounded-xl font-bold shadow-lg transform hover:-translate-y-1 text-sm md:text-base cursor-pointer"
+            className="w-full md:w-auto inline-flex justify-center items-center px-6 py-3 md:px-8 md:py-4 bg-brand-dark text-white hover:bg-black transition-all rounded-xl font-bold shadow-lg transform hover:-translate-y-1 text-sm md:text-base cursor-pointer"
            >
              Estimer un projet similaire
+           </a>
+           <a 
+            href="https://www.instagram.com/leparquetparisien/" 
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full md:w-auto inline-flex justify-center items-center gap-2 px-6 py-3 md:px-8 md:py-4 bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white hover:opacity-90 transition-all rounded-xl font-bold shadow-lg transform hover:-translate-y-1 text-sm md:text-base cursor-pointer"
+           >
+             <Instagram size={20} />
+             Voir notre Instagram
            </a>
         </div>
       </div>

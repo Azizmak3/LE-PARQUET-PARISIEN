@@ -129,7 +129,8 @@ export const calculateEstimate = async (
   type: string,
   surface: number,
   condition: string,
-  finish: string
+  finish: string,
+  country: string = 'France'
 ): Promise<CalculationResult> => {
   
   // SPECIAL CASE: Water Damage (Dégâts des Eaux)
@@ -153,6 +154,11 @@ export const calculateEstimate = async (
   
   if (type === 'Pose') {
     basePrice = 65; // New Installation Base
+  }
+
+  // COUNTRY MODIFIER
+  if (country === 'Luxembourg' || country === 'Suisse') {
+    basePrice += 15;
   }
 
   // CONDITION MODIFIERS (+5€ increments)

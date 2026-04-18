@@ -23,6 +23,7 @@ export interface CalculatorState {
   condition: string;
   finish: string;
   timing: string;
+  country?: string;
   isCalculating: boolean;
   result: CalculationResult | null;
 }

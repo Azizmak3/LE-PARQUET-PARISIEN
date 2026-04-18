@@ -70,10 +70,14 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
   const back = () => setState(prev => ({ ...prev, step: prev.step - 1 }));
 
   const finishCalculation = async (finishType: string) => {
-    setState(prev => ({ ...prev, finish: finishType, isCalculating: true, step: 5 }));
+    setState(prev => ({ ...prev, finish: finishType, step: 5 }));
+  };
+
+  const submitCountryAndCalculate = async (country: string) => {
+    setState(prev => ({ ...prev, country: country, isCalculating: true, step: 6 }));
     // Simulate slight delay for effect before calling API
     setTimeout(async () => {
-        const result = await calculateEstimate(state.type, state.surface, state.condition, finishType);
+        const result = await calculateEstimate(state.type, state.surface, state.condition, state.finish, country);
         setState(prev => ({ ...prev, result, isCalculating: false }));
     }, 1500);
   };
@@ -107,14 +111,14 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
             <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-100">
                 <div 
                     className="h-full bg-gradient-to-r from-action-orange to-orange-400 transition-all duration-700 ease-out" 
-                    style={{ width: `${(state.step / 5) * 100}%` }}
+                    style={{ width: `${(state.step / 6) * 100}%` }}
                 ></div>
             </div>
 
             <div className="p-6 md:p-12">
-              {state.step < 5 && (
+              {state.step < 6 && (
                   <div className="flex justify-between items-center mb-6">
-                     <span className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest">Étape {state.step}/4 • Moins d'une minute</span>
+                     <span className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest">Étape {Math.min(state.step, 5)}/5 • Moins d'une minute</span>
                      {/* TIME PRESSURE */}
                      <span className="text-xs font-bold text-action-orange flex items-center gap-1 bg-orange-50 px-2 py-1 rounded">
                         <Timer size={12} /> Encore ~45s
@@ -123,13 +127,13 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
               )}
               
               {/* COMMITMENT LOCK AFTER STEP 1 */}
-              {state.step > 1 && state.step < 5 && (
+              {state.step > 1 && state.step < 6 && (
                  <div className="mb-6 md:mb-8 flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg text-xs md:text-sm font-bold border border-green-100">
                      <CheckCircle2 size={16} className="shrink-0"/> Artisans disponibles dans votre arrondissement. Continuez pour voir votre tarif.
                  </div>
               )}
 
-              {state.step > 1 && state.step < 5 && (
+              {state.step > 1 && state.step < 6 && (
                   <button onClick={back} className="text-sm text-gray-400 hover:text-brand-dark font-medium underline decoration-gray-300 mb-6 block">Retour</button>
               )}
 
@@ -268,8 +272,37 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                 </div>
               )}
 
-              {/* STEP 5: RESULT WITH URGENCY */}
+              {/* STEP 5: COUNTRY */}
               {state.step === 5 && (
+                 <div className="animate-fade-in">
+                    <h3 className="text-2xl md:text-3xl font-bold text-brand-dark mb-2">Lieu du chantier</h3>
+                    <p className="text-gray-500 mb-6 md:mb-8">Dans quel pays se trouve le projet ?</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                        {[
+                            { label: 'France', code: 'FR', flag: '🇫🇷' },
+                            { label: 'Luxembourg', code: 'LU', flag: '🇱🇺' },
+                            { label: 'Suisse', code: 'CH', flag: '🇨🇭' },
+                            { label: 'Belgique', code: 'BE', flag: '🇧🇪' },
+                            { label: 'Espagne', code: 'ES', flag: '🇪🇸' }
+                        ].map((c) => (
+                            <button 
+                                key={c.label}
+                                onClick={() => submitCountryAndCalculate(c.label)}
+                                className="w-full text-left p-4 md:p-5 rounded-xl border border-gray-200 hover:border-action-orange hover:shadow-lg hover:bg-white transition-all bg-gray-50 group flex items-center gap-3"
+                            >
+                                <span className="text-2xl">{c.flag}</span>
+                                <span className="font-bold text-brand-dark text-base md:text-lg group-hover:text-action-orange transition-colors">
+                                    {c.label}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                 </div>
+              )}
+
+              {/* STEP 6: RESULT WITH URGENCY */}
+              {state.step === 6 && (
                 <div className="animate-fade-in text-center py-4 md:py-8">
                      {/* Feature 4: Countdown Timer (Urgency Header) */}
                      {state.result && state.result.minPrice > 0 && (
@@ -462,10 +495,16 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                             {state.condition || '...'}
                         </span>
                     </div>
-                    <div className="flex justify-between items-center py-3">
+                    <div className="flex justify-between items-center py-3 border-b border-gray-50">
                         <span className="text-gray-500 text-sm">Finition</span>
                         <span className={`font-bold ${state.finish ? 'text-brand-dark' : 'text-gray-300'}`}>
                             {state.finish || '...'}
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center py-3">
+                        <span className="text-gray-500 text-sm">Pays</span>
+                        <span className={`font-bold ${state.country ? 'text-brand-dark' : 'text-gray-300'}`}>
+                            {state.country || '...'}
                         </span>
                     </div>
                 </div>

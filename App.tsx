@@ -304,7 +304,7 @@ const App: React.FC = () => {
                <span className="font-sans font-black text-3xl leading-none tracking-tighter text-white">LE PARQUET</span>
                <span className="font-sans text-xs font-bold tracking-[0.4em] text-action-orange uppercase pl-1">PARISIEN</span>
             </div>
-            <p className="text-gray-500 mb-4">Intervention rapide 7j/7 dans tout Paris et Île-de-France.</p>
+            <p className="text-gray-500 mb-4">Intervention rapide 7j/7 en France, Luxembourg, Suisse, Belgique et Espagne.</p>
           </div>
           <div>
             <h4 className="font-bold mb-4 text-white uppercase tracking-wider text-xs">Urgence</h4>
