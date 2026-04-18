@@ -6,11 +6,11 @@ const WhatsAppWidget: React.FC = () => {
       href="https://wa.me/33614494907?text=Bonjour%20!%20Je%20suis%20sur%20votre%20site%20et%20j'aimerais%20avoir%20une%20estimation%20pour%20la%20r%C3%A9novation%20de%20mon%20parquet%20%C3%A0%20Paris."
       target="_blank"
       rel="noopener noreferrer"
-      className="hidden lg:flex fixed bottom-6 left-6 z-[60] items-center gap-4 group cursor-pointer transition-all hover:-translate-y-1"
+      className="hidden lg:flex fixed bottom-6 right-6 z-[60] items-center gap-4 group cursor-pointer transition-all hover:-translate-y-1 flex-row-reverse"
       aria-label="Discuter sur WhatsApp"
     >
       {/* Tooltip on Hover */}
-      <div className="bg-white text-brand-dark px-4 py-2 rounded-xl shadow-lg border border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity absolute left-16 whitespace-nowrap text-sm font-bold pointer-events-none transform translate-x-2">
+      <div className="bg-white text-brand-dark px-4 py-2 rounded-xl shadow-lg border border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity absolute right-16 whitespace-nowrap text-sm font-bold pointer-events-none transform -translate-x-2">
         <span className="text-green-600">●</span> Réponse sous 5 min
       </div>
 

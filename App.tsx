@@ -6,7 +6,6 @@ import Renovator from './components/Renovator';
 import Portfolio from './components/Portfolio';
 import Testimonials from './components/Testimonials';
 import FAQ from './components/FAQ';
-import Chatbot from './components/Chatbot';
 import ProSection from './components/ProSection';
 import SocialProofToast from './components/SocialProofToast';
 import WhatsAppWidget from './components/WhatsAppWidget';
@@ -338,7 +337,6 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      <Chatbot />
       <SocialProofToast />
       <WhatsAppWidget />
       
