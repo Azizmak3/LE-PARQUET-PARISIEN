@@ -24,23 +24,20 @@
     <script>
       gtag('event', 'conversion', {'send_to': 'AW-18086588282/-POJCKjKnuobEM7q9tJC'});
     </script>
-    <!-- Google tag (gtag.js) event - delayed navigation helper -->
+    <!-- Event snippet for Demande de devis conversion page -->
     <script>
-      // Helper function to delay opening a URL until a gtag event is sent.
-      // Call it in response to an action that should navigate to a URL.
-      function gtagSendEvent(url) {
-        var callback = function () {
-          if (typeof url === 'string') {
-            window.location = url;
-          }
-        };
-        gtag('event', 'ads_conversion_REQUEST_QUOTE_1', {
-          'event_callback': callback,
-          'event_timeout': 2000,
-          // <event_parameters>
-        });
-        return false;
-      }
+    function gtag_report_conversion(url) {
+      var callback = function () {
+        if (typeof(url) != 'undefined') {
+          window.location = url;
+        }
+      };
+      gtag('event', 'conversion', {
+          'send_to': 'AW-18086588282/X6r9CM2i854cEPrerbBD',
+          'event_callback': callback
+      });
+      return false;
+    }
     </script>
     <!-- TikTok Pixel Code Start -->
     <script>

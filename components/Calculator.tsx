@@ -427,8 +427,8 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                             href="https://cal.com/leparquetparisien/diagnostic"
                                             onClick={(e) => {
                                                 e.preventDefault();
-                                                if (typeof window !== 'undefined' && 'gtagSendEvent' in window) {
-                                                    (window as any).gtagSendEvent('https://cal.com/leparquetparisien/diagnostic');
+                                                if (typeof window !== 'undefined' && 'gtag_report_conversion' in window) {
+                                                    (window as any).gtag_report_conversion('https://cal.com/leparquetparisien/diagnostic');
                                                 } else {
                                                     window.open("https://cal.com/leparquetparisien/diagnostic", "_blank");
                                                 }
@@ -443,8 +443,8 @@ const Calculator: React.FC<CalculatorProps> = ({ initialZip, initialService }) =
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 const url = "https://wa.me/33614494907?text=Bonjour,%20j'ai%20eu%20mon%20estimation%20et%20je%20souhaite%20prendre%20rendez-vous.";
-                                                if (typeof window !== 'undefined' && 'gtagSendEvent' in window) {
-                                                    (window as any).gtagSendEvent(url);
+                                                if (typeof window !== 'undefined' && 'gtag_report_conversion' in window) {
+                                                    (window as any).gtag_report_conversion(url);
                                                 } else {
                                                     window.open(url, "_blank");
                                                 }
