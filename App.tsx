@@ -36,24 +36,6 @@ const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string
   }
 };
 
-const NavLink: React.FC<NavLinkProps> = ({ href, children, badge, onClick }) => (
-  <a 
-    href={href} 
-    onClick={(e) => {
-      if (onClick) onClick();
-      handleSmoothScroll(e, href);
-    }}
-    className="text-sm font-bold text-gray-600 hover:text-brand-dark hover:bg-gray-50 px-3 py-2 rounded-lg transition-all flex items-center gap-2 group relative font-sans cursor-pointer"
-  >
-    {children}
-    {badge && (
-      <span className="bg-action-orange text-white text-[10px] px-1.5 py-0.5 rounded-full absolute -top-1 -right-2 animate-pulse">
-        {badge}
-      </span>
-    )}
-  </a>
-);
-
 const App: React.FC = () => {
   const [estimateData, setEstimateData] = useState<{zip: string, service: string} | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -67,7 +49,6 @@ const App: React.FC = () => {
 
     window.addEventListener('popstate', handleLocationChange);
     
-    // Override pushState and replaceState to intercept navigation
     const originalPushState = window.history.pushState;
     window.history.pushState = function() {
       originalPushState.apply(this, arguments as any);
@@ -85,6 +66,29 @@ const App: React.FC = () => {
     setCurrentPath(path);
     window.scrollTo(0, 0);
   };
+
+  const NavLink: React.FC<NavLinkProps> = ({ href, children, badge, onClick }) => (
+    <a 
+      href={href} 
+      onClick={(e) => {
+        e.preventDefault();
+        if (onClick) onClick();
+        if (href.startsWith('/')) {
+          navigateTo(href);
+        } else {
+          handleSmoothScroll(e, href);
+        }
+      }}
+      className="text-sm font-bold text-gray-600 hover:text-brand-dark hover:bg-gray-50 px-3 py-2 rounded-lg transition-all flex items-center gap-2 group relative font-sans cursor-pointer"
+    >
+      {children}
+      {badge && (
+        <span className="bg-action-orange text-white text-[10px] px-1.5 py-0.5 rounded-full absolute -top-1 -right-2 animate-pulse">
+          {badge}
+        </span>
+      )}
+    </a>
+  );
 
   const handleStartEstimate = (zip: string, service: string) => {
     setEstimateData({ zip, service });
@@ -142,16 +146,10 @@ const App: React.FC = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center gap-1">
-            <NavLink href="#services" onClick={() => setMobileMenuOpen(false)}>TARIFS</NavLink>
-            <NavLink href="#renovator" badge="IA" onClick={() => setMobileMenuOpen(false)}>SIMULATEUR 3D</NavLink>
-            <NavLink href="#portfolio" onClick={() => setMobileMenuOpen(false)}>RÉALISATIONS</NavLink>
-            <a 
-              href="#pro" 
-              onClick={(e) => { setMobileMenuOpen(false); handleSmoothScroll(e, '#pro'); }}
-              className="text-sm font-bold text-gray-600 hover:text-brand-dark hover:bg-gray-50 px-3 py-2 rounded-lg transition-all flex items-center gap-2 group relative font-sans cursor-pointer"
-            >
-              ESPACE PRO
-            </a>
+            <NavLink href="/services" onClick={() => setMobileMenuOpen(false)}>TARIFS</NavLink>
+            <NavLink href="/simulateur" badge="IA" onClick={() => setMobileMenuOpen(false)}>SIMULATEUR 3D</NavLink>
+            <NavLink href="/realisations" onClick={() => setMobileMenuOpen(false)}>RÉALISATIONS</NavLink>
+            <NavLink href="/espace-pro" onClick={() => setMobileMenuOpen(false)}>ESPACE PRO</NavLink>
           </div>
 
           {/* Desktop CTA */}
@@ -197,29 +195,29 @@ const App: React.FC = () => {
                    {/* Links */}
                    <div className="p-6 flex flex-col gap-5">
                       <a 
-                        href="#services" 
-                        onClick={(e) => { setMobileMenuOpen(false); handleSmoothScroll(e, '#services'); }} 
+                        href="/services" 
+                        onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); navigateTo('/services'); }} 
                         className="text-lg font-bold text-brand-dark hover:text-action-orange transition-colors"
                       >
                         Tarifs & Prestations
                       </a>
                       <a 
-                        href="#renovator" 
-                        onClick={(e) => { setMobileMenuOpen(false); handleSmoothScroll(e, '#renovator'); }} 
+                        href="/simulateur" 
+                        onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); navigateTo('/simulateur'); }} 
                         className="text-lg font-bold text-brand-dark hover:text-action-orange transition-colors flex justify-between items-center"
                       >
                         Simulateur 3D <span className="bg-action-orange text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold">Nouveau</span>
                       </a>
                       <a 
-                        href="#portfolio" 
-                        onClick={(e) => { setMobileMenuOpen(false); handleSmoothScroll(e, '#portfolio'); }} 
+                        href="/realisations" 
+                        onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); navigateTo('/realisations'); }} 
                         className="text-lg font-bold text-brand-dark hover:text-action-orange transition-colors"
                       >
                         Nos Réalisations
                       </a>
                       <a 
-                        href="#pro" 
-                        onClick={(e) => { setMobileMenuOpen(false); handleSmoothScroll(e, '#pro'); }} 
+                        href="/espace-pro" 
+                        onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); navigateTo('/espace-pro'); }} 
                         className="text-lg font-bold text-brand-dark hover:text-action-orange transition-colors flex items-center gap-2"
                       >
                         Espace Pro
@@ -246,12 +244,32 @@ const App: React.FC = () => {
       <main>
         {currentPath === '/espace-pro' ? (
           <EspacePro />
-        ) : currentPath === '/devis' ? (
+        ) : currentPath === '/devis' || currentPath === '/devis/' ? (
           <div className="bg-white py-12 md:py-24 min-h-[80vh]">
             <Calculator 
               initialZip={estimateData?.zip} 
               initialService={estimateData?.service} 
             />
+          </div>
+        ) : currentPath === '/services' || currentPath === '/tarifs' ? (
+          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
+            <Services />
+          </div>
+        ) : currentPath === '/simulator' || currentPath === '/simulateur' ? (
+          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
+            <Renovator />
+          </div>
+        ) : currentPath === '/portfolio' || currentPath === '/realisations' ? (
+          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
+            <Portfolio />
+          </div>
+        ) : currentPath === '/temoignages' || currentPath === '/testimonials' ? (
+          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
+            <Testimonials />
+          </div>
+        ) : currentPath === '/faq' ? (
+          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
+            <FAQ />
           </div>
         ) : (
           <>
