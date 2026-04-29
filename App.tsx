@@ -48,7 +48,7 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('popstate', handleLocationChange);
-    
+
     const originalPushState = window.history.pushState;
     window.history.pushState = function() {
       originalPushState.apply(this, arguments as any);
@@ -60,6 +60,79 @@ const App: React.FC = () => {
       window.history.pushState = originalPushState;
     };
   }, []);
+
+  useEffect(() => {
+    const routeMeta: Record<string, { title: string; description: string }> = {
+      '/': {
+        title: 'LE PARQUET PARISIEN | Devis Immédiat & Artisans Certifiés',
+        description: "Rénovation de parquet à Paris : ponçage sans poussière, vitrification, pose. Devis immédiat, artisans certifiés, intervention 7j/7."
+      },
+      '/devis': {
+        title: 'Devis Parquet en 2 minutes | LE PARQUET PARISIEN',
+        description: 'Obtenez votre devis parquet personnalisé en ligne en 2 minutes. Prix encadrés, sans engagement, assurance incluse.'
+      },
+      '/simulateur': {
+        title: 'Simulateur 3D IA | Visualisez votre parquet rénové',
+        description: 'Téléchargez une photo et visualisez instantanément votre pièce avec un parquet rénové grâce à notre simulateur 3D propulsé par l\'IA.'
+      },
+      '/simulator': {
+        title: 'Simulateur 3D IA | Visualisez votre parquet rénové',
+        description: 'Téléchargez une photo et visualisez instantanément votre pièce avec un parquet rénové grâce à notre simulateur 3D propulsé par l\'IA.'
+      },
+      '/services': {
+        title: 'Tarifs & Prestations | LE PARQUET PARISIEN',
+        description: 'Découvrez nos tarifs encadrés pour le ponçage, la vitrification, la pose collée et la rénovation de parquet à Paris.'
+      },
+      '/tarifs': {
+        title: 'Tarifs & Prestations | LE PARQUET PARISIEN',
+        description: 'Découvrez nos tarifs encadrés pour le ponçage, la vitrification, la pose collée et la rénovation de parquet à Paris.'
+      },
+      '/realisations': {
+        title: 'Nos Réalisations | LE PARQUET PARISIEN',
+        description: 'Découvrez le portfolio de nos chantiers de rénovation de parquet à Paris : avant/après, pose collée, vitrification.'
+      },
+      '/portfolio': {
+        title: 'Nos Réalisations | LE PARQUET PARISIEN',
+        description: 'Découvrez le portfolio de nos chantiers de rénovation de parquet à Paris : avant/après, pose collée, vitrification.'
+      },
+      '/temoignages': {
+        title: 'Témoignages clients | LE PARQUET PARISIEN',
+        description: 'Lisez les avis et témoignages de nos clients à Paris et en Île-de-France sur nos prestations de rénovation de parquet.'
+      },
+      '/testimonials': {
+        title: 'Témoignages clients | LE PARQUET PARISIEN',
+        description: 'Lisez les avis et témoignages de nos clients à Paris et en Île-de-France sur nos prestations de rénovation de parquet.'
+      },
+      '/faq': {
+        title: 'FAQ | LE PARQUET PARISIEN',
+        description: 'Réponses aux questions fréquentes sur le ponçage, la vitrification, les délais et les tarifs de rénovation de parquet.'
+      },
+      '/espace-pro': {
+        title: 'Espace Pro | LE PARQUET PARISIEN',
+        description: 'Espace dédié aux professionnels : architectes, syndics, agences immobilières. Tarifs préférentiels et interventions prioritaires.'
+      }
+    };
+
+    const normalized = currentPath.replace(/\/$/, '') || '/';
+    const meta = routeMeta[normalized] || routeMeta['/'];
+    document.title = meta.title;
+
+    let descTag = document.querySelector('meta[name="description"]');
+    if (!descTag) {
+      descTag = document.createElement('meta');
+      descTag.setAttribute('name', 'description');
+      document.head.appendChild(descTag);
+    }
+    descTag.setAttribute('content', meta.description);
+
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute('href', `https://leparquetparisien.fr${normalized === '/' ? '' : normalized}`);
+  }, [currentPath]);
 
   const navigateTo = (path: string) => {
     window.history.pushState({}, '', path);

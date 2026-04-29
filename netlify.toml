@@ -2,3 +2,11 @@
   command = "npm run build"
   publish = "dist"
   functions = "netlify/functions"
+
+# SPA fallback: serve index.html for any client-side route so direct URLs
+# like /devis, /simulateur, /realisations, /espace-pro, /services, /faq,
+# /temoignages work when typed into the browser or opened from search engines.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
