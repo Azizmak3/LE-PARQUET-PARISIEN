@@ -33,7 +33,7 @@ const REVIEWS = [
 
 const Testimonials: React.FC = () => {
   return (
-    <section className="py-12 md:py-24 bg-gray-50 border-t border-gray-200 overflow-hidden">
+    <section id="temoignages" className="py-12 md:py-24 bg-gray-50 border-t border-gray-200 overflow-hidden scroll-mt-24">
       <div className="container mx-auto px-4">
         <div className="text-center mb-8 md:mb-16">
            <h2 className="text-3xl md:text-5xl font-sans font-bold text-brand-dark mb-4">Ils nous ont fait confiance</h2>

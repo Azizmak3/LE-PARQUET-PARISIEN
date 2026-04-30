@@ -134,10 +134,58 @@ const App: React.FC = () => {
     canonical.setAttribute('href', `https://leparquetparisien.fr${normalized === '/' ? '' : normalized}`);
   }, [currentPath]);
 
+  useEffect(() => {
+    if (currentPath === '/' || currentPath === '/espace-pro') return;
+    const sectionId = sectionForPath(currentPath);
+    if (!sectionId) return;
+    const scroll = () => {
+      const el = document.getElementById(sectionId);
+      if (el) el.scrollIntoView({ behavior: 'auto', block: 'start' });
+    };
+    const t = window.setTimeout(scroll, 50);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const sectionForPath = (path: string): string | null => {
+    const normalized = path.replace(/\/$/, '') || '/';
+    const map: Record<string, string> = {
+      '/devis': 'devis',
+      '/simulateur': 'renovator',
+      '/simulator': 'renovator',
+      '/services': 'services',
+      '/tarifs': 'services',
+      '/realisations': 'portfolio',
+      '/portfolio': 'portfolio',
+      '/temoignages': 'temoignages',
+      '/testimonials': 'temoignages',
+      '/faq': 'faq',
+    };
+    return map[normalized] || null;
+  };
+
   const navigateTo = (path: string) => {
+    const sectionId = sectionForPath(path);
     window.history.pushState({}, '', path);
     setCurrentPath(path);
-    window.scrollTo(0, 0);
+
+    if (path === '/espace-pro') {
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    if (sectionId) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(sectionId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          window.scrollTo(0, 0);
+        }
+      });
+    } else {
+      window.scrollTo(0, 0);
+    }
   };
 
   const NavLink: React.FC<NavLinkProps> = ({ href, children, badge, onClick }) => (
@@ -317,33 +365,6 @@ const App: React.FC = () => {
       <main>
         {currentPath === '/espace-pro' ? (
           <EspacePro />
-        ) : currentPath === '/devis' || currentPath === '/devis/' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Calculator 
-              initialZip={estimateData?.zip} 
-              initialService={estimateData?.service} 
-            />
-          </div>
-        ) : currentPath === '/services' || currentPath === '/tarifs' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Services />
-          </div>
-        ) : currentPath === '/simulator' || currentPath === '/simulateur' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Renovator />
-          </div>
-        ) : currentPath === '/portfolio' || currentPath === '/realisations' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Portfolio />
-          </div>
-        ) : currentPath === '/temoignages' || currentPath === '/testimonials' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Testimonials />
-          </div>
-        ) : currentPath === '/faq' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <FAQ />
-          </div>
         ) : (
           <>
             {/* HERO */}
@@ -365,16 +386,16 @@ const App: React.FC = () => {
             <Services />
 
             {/* CALCULATOR - Clean White Background */}
-            <div id="devis" className="bg-white py-16">
-              <Calculator 
-                initialZip={estimateData?.zip} 
-                initialService={estimateData?.service} 
+            <div id="devis" className="bg-white py-16 scroll-mt-24">
+              <Calculator
+                initialZip={estimateData?.zip}
+                initialService={estimateData?.service}
               />
             </div>
 
             {/* PORTFOLIO */}
             <Portfolio />
-            
+
             {/* TESTIMONIALS */}
             <Testimonials />
 
