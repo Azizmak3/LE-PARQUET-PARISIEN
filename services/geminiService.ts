@@ -265,81 +265,40 @@ export const renovateImage = async (fileInput: File, promptText: string): Promis
 
   try {
     // 1. Resize image
-    // Increased to 1024px to ensure high fidelity for the user's photo
     const blob = await resizeImageToBlob(fileInput);
     if (!blob) throw new Error("Erreur lors de la préparation de l'image.");
 
-    // --- SAFE DEMO MODE ---
-    if (!process.env.API_KEY) {
-      console.warn("⚠️ [GEMINI] No API Key found. Running in DEMO MODE.");
-      await new Promise(r => setTimeout(r, 1500));
-      return URL.createObjectURL(blob);
-    }
-
-    // 2. Convert to Base64 for the SDK
+    // 2. Convert to Base64 for the payload
     const base64Data = await blobToBase64(blob);
 
-    // 3. Call Google Gemini Directly
-    // STRICT FIDELITY PROMPT
-    const finalPrompt = `
-    ACT AS A HIGH-END INTERIOR DESIGN PHOTO EDITOR.
-    INPUT IMAGE: Use the provided image as the absolute ground truth for the room's geometry.
-    TASK: Change the floor finish to: "${promptText}".
-    
-    STRICT CONSTRAINTS:
-    1. REPAIR & CLEAN: Remove all stains, scratches, water damage, and signs of wear from the floor. The floor must look brand new and perfectly installed.
-    2. EXACT MATCH: The walls, windows, furniture, ceiling, and lighting MUST be identical to the original image. Do not move, add, or remove any object.
-    3. PERSPECTIVE LOCK: The new floor lines must follow the exact perspective of the original room.
-    4. PHOTOREALISM: The floor texture must look like high-quality, real wood flooring.
-    
-    OUTPUT: The exact same photo, but with the renovated, pristine floor.`;
-
-    const response = await ai.models.generateContent({
-      model: RENOVATE_MODEL,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: finalPrompt },
-            { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
-          ]
-        }
-      ],
-      config: {
-        responseModalities: ["IMAGE"],
-      }
+    // 3. Call our secure Netlify Function
+    const response = await fetch('/.netlify/functions/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        imageBase64: base64Data,
+        prompt: promptText
+      })
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[RENOVATE] API ERROR:', errorText);
+      throw new Error(`Erreur serveur: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    if (!data.imageBase64) {
+      throw new Error("Aucune image n'a été retournée.");
+    }
+
     console.log(`[RENOVATE] API responded in ${Date.now() - startTime}ms`);
-
-    const candidates = response.candidates;
-    if (!candidates || candidates.length === 0) throw new Error("L'IA n'a pas renvoyé de résultat.");
-    
-    const firstCandidate = candidates[0];
-    const parts = firstCandidate.content?.parts;
-    
-    if (!parts || parts.length === 0) {
-        throw new Error("Structure de réponse invalide.");
-    }
-
-    const imagePart = parts.find(p => p.inlineData);
-
-    if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
-        const resultBase64 = imagePart.inlineData.data;
-        const resultMime = imagePart.inlineData.mimeType || 'image/jpeg';
-        
-        if (resultBase64.length < 100) {
-           throw new Error("Generated image data is corrupted.");
-        }
-        
-        // 4. USE DATA URI (Robust for Mobile)
-        const dataUri = `data:${resultMime};base64,${resultBase64}`;
-        
-        console.log(`[GEMINI] Generated Data URI, length: ${dataUri.length}`);
-        return dataUri;
-    }
-
-    throw new Error("Aucune image générée dans la réponse.");
+    return data.imageBase64; // Data URI already formatted by backend
 
   } catch (error: any) {
     console.error('[RENOVATE] ERROR:', error);
