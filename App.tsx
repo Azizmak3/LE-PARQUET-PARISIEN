@@ -85,20 +85,35 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const sectionId = SECTION_ROUTES[currentPath];
+    // Resolve the target section from either the path (SPA pushState) or a
+    // hash fragment (after a Netlify redirect like /devis -> /#devis).
+    const hashId = window.location.hash ? window.location.hash.slice(1) : '';
+    const sectionId = SECTION_ROUTES[currentPath] || hashId;
     if (!sectionId) return;
+
     let attempts = 0;
     const tryScroll = () => {
       const el = document.getElementById(sectionId);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth' });
-      } else if (attempts < 20) {
+      } else if (attempts < 40) {
         attempts += 1;
         requestAnimationFrame(tryScroll);
       }
     };
     requestAnimationFrame(tryScroll);
   }, [currentPath]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hashId = window.location.hash ? window.location.hash.slice(1) : '';
+      if (!hashId) return;
+      const el = document.getElementById(hashId);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const navigateTo = (path: string) => {
     window.history.pushState({}, '', path);

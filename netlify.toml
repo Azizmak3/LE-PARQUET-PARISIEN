@@ -3,6 +3,71 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Section sitelinks — direct URL hits redirect to the matching home-page anchor
+# so search engine sitelinks (e.g. /devis, /services, /faq) land on the
+# correct section of the single-page app.
+
+[[redirects]]
+  from = "/devis"
+  to = "/#devis"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/services"
+  to = "/#services"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/tarifs"
+  to = "/#services"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/simulateur"
+  to = "/#renovator"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/simulator"
+  to = "/#renovator"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/realisations"
+  to = "/#portfolio"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/portfolio"
+  to = "/#portfolio"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/temoignages"
+  to = "/#testimonials"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/testimonials"
+  to = "/#testimonials"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/faq"
+  to = "/#faq"
+  status = 301
+  force = true
+
+# SPA fallback for everything else (e.g. /espace-pro and any pushState routes)
 [[redirects]]
   from = "/*"
   to = "/index.html"
