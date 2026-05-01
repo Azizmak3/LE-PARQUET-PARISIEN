@@ -83,7 +83,7 @@ const Services: React.FC = () => {
             
             <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-auto mt-2 md:mt-0">
                  <div className="flex items-center justify-center w-full md:w-auto gap-2 text-xs font-bold text-green-700 bg-green-50 px-4 py-2 rounded-full border border-green-100 animate-pulse">
-                    <Clock size={14} /> Disponibilités : Semaine du 12 Mars
+                    <Clock size={14} /> Disponibilités : Semaine du 12 Mai
                 </div>
             </div>
         </div>
