@@ -36,6 +36,20 @@ const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string
   }
 };
 
+  const routeToId: Record<string, string> = {
+    '/devis': 'devis',
+    '/devis/': 'devis',
+    '/services': 'services',
+    '/tarifs': 'services',
+    '/simulateur': 'renovator',
+    '/simulator': 'renovator',
+    '/realisations': 'portfolio',
+    '/portfolio': 'portfolio',
+    '/temoignages': 'testimonials',
+    '/testimonials': 'testimonials',
+    '/faq': 'faq'
+  };
+
 const App: React.FC = () => {
   const [estimateData, setEstimateData] = useState<{zip: string, service: string} | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -48,6 +62,21 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('popstate', handleLocationChange);
+
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a');
+      if (anchor && anchor.href && anchor.origin === window.location.origin && !anchor.hash) {
+        const path = anchor.pathname;
+        // Intercept all internal links to our defined routes or home
+        if (routeToId[path] || path === '/espace-pro' || path === '/') {
+          e.preventDefault();
+          navigateTo(path);
+        }
+      }
+    };
+    document.addEventListener('click', handleGlobalClick);
+
     
     const originalPushState = window.history.pushState;
     window.history.pushState = function() {
@@ -57,6 +86,7 @@ const App: React.FC = () => {
 
     return () => {
       window.removeEventListener('popstate', handleLocationChange);
+      document.removeEventListener('click', handleGlobalClick);
       window.history.pushState = originalPushState;
     };
   }, []);
@@ -64,7 +94,17 @@ const App: React.FC = () => {
   const navigateTo = (path: string) => {
     window.history.pushState({}, '', path);
     setCurrentPath(path);
-    window.scrollTo(0, 0);
+    
+    // Explicitly handle scrolling for section links in case currentPath didn't change
+    const targetId = routeToId[path];
+    if (targetId) {
+      setTimeout(() => {
+        const el = document.getElementById(targetId);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    } else if (path === '/') {
+      window.scrollTo(0, 0);
+    }
   };
 
   const NavLink: React.FC<NavLinkProps> = ({ href, children, badge, onClick }) => (
@@ -104,6 +144,22 @@ const App: React.FC = () => {
       }
     }
   };
+
+
+
+  useEffect(() => {
+    if (routeToId[currentPath]) {
+      setTimeout(() => {
+        const el = document.getElementById(routeToId[currentPath]);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } else if (currentPath === '/') {
+      window.scrollTo(0, 0);
+    }
+  }, [currentPath]);
+
 
   return (
     <div className="min-h-screen bg-white font-sans text-brand-dark">
@@ -244,33 +300,6 @@ const App: React.FC = () => {
       <main>
         {currentPath === '/espace-pro' ? (
           <EspacePro />
-        ) : currentPath === '/devis' || currentPath === '/devis/' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Calculator 
-              initialZip={estimateData?.zip} 
-              initialService={estimateData?.service} 
-            />
-          </div>
-        ) : currentPath === '/services' || currentPath === '/tarifs' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Services />
-          </div>
-        ) : currentPath === '/simulator' || currentPath === '/simulateur' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Renovator />
-          </div>
-        ) : currentPath === '/portfolio' || currentPath === '/realisations' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Portfolio />
-          </div>
-        ) : currentPath === '/temoignages' || currentPath === '/testimonials' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Testimonials />
-          </div>
-        ) : currentPath === '/faq' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <FAQ />
-          </div>
         ) : (
           <>
             {/* HERO */}
