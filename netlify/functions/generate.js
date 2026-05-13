@@ -36,7 +36,13 @@ exports.handler = async function (event, context) {
     
     OUTPUT: The exact same photo, but with the renovated, pristine floor.`;
 
-    const ai = new GoogleGenAI();
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.api_key;
+    const aiConfig = {};
+    if (apiKey) aiConfig.apiKey = apiKey;
+    const baseUrl = process.env.GEMINI_BASE_URL;
+    if (baseUrl) aiConfig.httpOptions = { baseUrl };
+    
+    const ai = new GoogleGenAI(aiConfig);
     
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
