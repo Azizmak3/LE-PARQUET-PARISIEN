@@ -96,6 +96,7 @@ export default defineConfig(({ mode }) => {
   
   // Robust fallback logic for keys
   const apiKey = env.API_KEY || env.GEMINI_API_KEY || '';
+  const geminiBaseUrl = env.GEMINI_BASE_URL || '';
   const supabaseUrl = env.SUPABASE_URL || '';
   const supabaseAnonKey = env.SUPABASE_ANON_KEY || '';
   
@@ -107,6 +108,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), netlifyMockPlugin()],
     define: {
       'process.env.API_KEY': JSON.stringify(apiKey),
+      'process.env.GEMINI_BASE_URL': JSON.stringify(geminiBaseUrl),
       'process.env.SUPABASE_URL': JSON.stringify(supabaseUrl),
       'process.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey)
     }

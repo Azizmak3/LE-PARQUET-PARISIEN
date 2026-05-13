@@ -9,21 +9,17 @@ exports.handler = async function (event, context) {
   }
 
   try {
-    const body = JSON.parse(event.body);
+    let bodyText = event.body;
+    if (event.isBase64Encoded) {
+      bodyText = Buffer.from(event.body, "base64").toString("utf-8");
+    }
+    const body = JSON.parse(bodyText);
     const { imageBase64, prompt } = body;
 
     if (!imageBase64 || !prompt) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Missing imageBase64 or prompt" }),
-      };
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "GEMINI_API_KEY is not configured" }),
       };
     }
 
@@ -40,7 +36,7 @@ exports.handler = async function (event, context) {
     
     OUTPUT: The exact same photo, but with the renovated, pristine floor.`;
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI();
     
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",

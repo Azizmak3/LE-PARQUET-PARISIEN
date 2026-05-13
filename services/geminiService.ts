@@ -2,11 +2,15 @@ import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { CalculationResult } from '../types';
 
 // STRICT ENV VAR HANDLING: Use process.env.API_KEY directly as per guidelines.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const aiConfig: any = { apiKey: process.env.API_KEY };
+if (process.env.GEMINI_BASE_URL) {
+  aiConfig.httpOptions = { baseUrl: process.env.GEMINI_BASE_URL };
+}
+const ai = new GoogleGenAI(aiConfig);
 
-const CHAT_MODEL = 'gemini-3-pro-preview';
+const CHAT_MODEL = 'gemini-3.1-pro-preview';
 const RENOVATE_MODEL = 'gemini-2.5-flash-image';
-const GEN_MODEL = 'gemini-3-pro-image-preview';
+const GEN_MODEL = 'gemini-3.1-pro-preview';
 
 // --- UTILS ---
 
