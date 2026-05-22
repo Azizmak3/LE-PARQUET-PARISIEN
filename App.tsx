@@ -285,12 +285,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* AI LEAD MAGNET (RENOVATOR) - MOVED UP FOR VISIBILITY */}
-            <Renovator />
-
-            {/* SERVICES */}
-            <Services />
-
             {/* CALCULATOR - Clean White Background */}
             <div id="devis" className="bg-white py-16">
               <Calculator 
@@ -298,6 +292,12 @@ const App: React.FC = () => {
                 initialService={estimateData?.service} 
               />
             </div>
+
+            {/* SERVICES */}
+            <Services />
+
+            {/* AI LEAD MAGNET (RENOVATOR) - MOVED UP FOR VISIBILITY */}
+            <Renovator />
 
             {/* PORTFOLIO */}
             <Portfolio />

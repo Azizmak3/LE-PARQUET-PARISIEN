@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Sparkles, MoveHorizontal, Lock, ArrowRight, Image as ImageIcon, CheckCircle2, Download, Mail, Scan, AlertCircle, Key, Loader2 } from 'lucide-react';
+import { Upload, Sparkles, MoveHorizontal, Lock, ArrowRight, Image as ImageIcon, CheckCircle2, Download, Mail, Scan, AlertCircle, Key, Loader2, Wrench } from 'lucide-react';
 import { renovateImage } from '../services/geminiService';
 import HubSpotForm from './HubSpotForm';
 
@@ -262,7 +262,22 @@ const Renovator: React.FC = () => {
             </p>
         </div>
 
-        <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden" id="visualizer-stage" ref={visualizerRef}>
+        <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden relative" id="visualizer-stage" ref={visualizerRef}>
+          {/* MAINTENANCE OVERLAY */}
+          <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
+              <div className="w-20 h-20 bg-brand-dark rounded-2xl flex items-center justify-center mb-6 shadow-xl relative">
+                  <div className="absolute inset-0 bg-brand-dark rounded-2xl animate-ping opacity-20"></div>
+                  <Wrench className="text-action-orange w-10 h-10" />
+              </div>
+              <h3 className="text-2xl md:text-3xl font-bold text-brand-dark mb-4">Simulateur IA en maintenance étudiée</h3>
+              <p className="text-gray-500 max-w-xl mx-auto md:text-lg mb-8 leading-relaxed">
+                  Notre équipe technique procède à une mise à jour majeure de notre moteur d'intelligence artificielle afin de vous proposer des rendus encore plus époustouflants et rapides. De retour très vite !
+              </p>
+              <div className="px-6 py-3 bg-white border border-gray-100 rounded-full shadow-sm text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                  <div className="w-2 h-2 bg-action-orange rounded-full animate-pulse"></div>
+                  Mise à jour en cours...
+              </div>
+          </div>
           
           {!imagePreview ? (
             <div className="flex flex-col md:flex-row">
