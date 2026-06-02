@@ -19,10 +19,33 @@ interface NavLinkProps {
   onClick?: () => void;
 }
 
+const SECTION_ROUTES: Record<string, string> = {
+  '/devis': 'devis',
+  '/devis/': 'devis',
+  '/services': 'services',
+  '/services/': 'services',
+  '/tarifs': 'services',
+  '/tarifs/': 'services',
+  '/simulateur': 'renovator',
+  '/simulateur/': 'renovator',
+  '/simulator': 'renovator',
+  '/simulator/': 'renovator',
+  '/realisations': 'portfolio',
+  '/realisations/': 'portfolio',
+  '/portfolio': 'portfolio',
+  '/portfolio/': 'portfolio',
+  '/temoignages': 'testimonials',
+  '/temoignages/': 'testimonials',
+  '/testimonials': 'testimonials',
+  '/testimonials/': 'testimonials',
+  '/faq': 'faq',
+  '/faq/': 'faq',
+};
+
 const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
   if (href.startsWith('/')) return; // Let normal navigation happen for actual routes
   e.preventDefault();
-  
+
   // If we are not on the home page and trying to scroll to a hash, go to home first
   if (window.location.pathname !== '/' && href.startsWith('#')) {
     window.location.href = '/' + href;
@@ -48,7 +71,7 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('popstate', handleLocationChange);
-    
+
     const originalPushState = window.history.pushState;
     window.history.pushState = function() {
       originalPushState.apply(this, arguments as any);
@@ -61,10 +84,54 @@ const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    // Resolve the target section from either the path (SPA pushState) or a
+    // hash fragment (after a Netlify redirect like /devis -> /#devis).
+    const hashId = window.location.hash ? window.location.hash.slice(1) : '';
+    const sectionId = SECTION_ROUTES[currentPath] || hashId;
+    if (!sectionId) return;
+
+    let attempts = 0;
+    const tryScroll = () => {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      } else if (attempts < 40) {
+        attempts += 1;
+        requestAnimationFrame(tryScroll);
+      }
+    };
+    requestAnimationFrame(tryScroll);
+  }, [currentPath]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hashId = window.location.hash ? window.location.hash.slice(1) : '';
+      if (!hashId) return;
+      const el = document.getElementById(hashId);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const navigateTo = (path: string) => {
     window.history.pushState({}, '', path);
     setCurrentPath(path);
-    window.scrollTo(0, 0);
+    const sectionId = SECTION_ROUTES[path];
+    if (sectionId) {
+      // Defer scroll until after the home view renders the target section
+      requestAnimationFrame(() => {
+        const el = document.getElementById(sectionId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          window.scrollTo(0, 0);
+        }
+      });
+    } else {
+      window.scrollTo(0, 0);
+    }
   };
 
   const NavLink: React.FC<NavLinkProps> = ({ href, children, badge, onClick }) => (
@@ -244,33 +311,6 @@ const App: React.FC = () => {
       <main>
         {currentPath === '/espace-pro' ? (
           <EspacePro />
-        ) : currentPath === '/devis' || currentPath === '/devis/' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Calculator 
-              initialZip={estimateData?.zip} 
-              initialService={estimateData?.service} 
-            />
-          </div>
-        ) : currentPath === '/services' || currentPath === '/tarifs' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Services />
-          </div>
-        ) : currentPath === '/simulator' || currentPath === '/simulateur' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Renovator />
-          </div>
-        ) : currentPath === '/portfolio' || currentPath === '/realisations' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Portfolio />
-          </div>
-        ) : currentPath === '/temoignages' || currentPath === '/testimonials' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Testimonials />
-          </div>
-        ) : currentPath === '/faq' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <FAQ />
-          </div>
         ) : (
           <>
             {/* HERO */}
