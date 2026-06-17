@@ -36,6 +36,20 @@ const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string
   }
 };
 
+const sectionRoutes: Record<string, string> = {
+  '/services': 'services',
+  '/tarifs': 'services',
+  '/simulator': 'renovator',
+  '/simulateur': 'renovator',
+  '/portfolio': 'portfolio',
+  '/realisations': 'portfolio',
+  '/temoignages': 'testimonials',
+  '/testimonials': 'testimonials',
+  '/faq': 'faq',
+  '/devis': 'devis',
+  '/devis/': 'devis',
+};
+
 const App: React.FC = () => {
   const [estimateData, setEstimateData] = useState<{zip: string, service: string} | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -48,7 +62,7 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('popstate', handleLocationChange);
-    
+
     const originalPushState = window.history.pushState;
     window.history.pushState = function() {
       originalPushState.apply(this, arguments as any);
@@ -61,10 +75,31 @@ const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const sectionId = sectionRoutes[currentPath];
+    if (!sectionId) {
+      if (currentPath === '/' || currentPath === '/espace-pro') {
+        window.scrollTo(0, 0);
+      }
+      return;
+    }
+    const scrollToSection = () => {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        window.scrollTo(0, 0);
+      }
+    };
+    requestAnimationFrame(() => requestAnimationFrame(scrollToSection));
+  }, [currentPath]);
+
   const navigateTo = (path: string) => {
     window.history.pushState({}, '', path);
     setCurrentPath(path);
-    window.scrollTo(0, 0);
+    if (!sectionRoutes[path]) {
+      window.scrollTo(0, 0);
+    }
   };
 
   const NavLink: React.FC<NavLinkProps> = ({ href, children, badge, onClick }) => (
@@ -244,33 +279,6 @@ const App: React.FC = () => {
       <main>
         {currentPath === '/espace-pro' ? (
           <EspacePro />
-        ) : currentPath === '/devis' || currentPath === '/devis/' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Calculator 
-              initialZip={estimateData?.zip} 
-              initialService={estimateData?.service} 
-            />
-          </div>
-        ) : currentPath === '/services' || currentPath === '/tarifs' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Services />
-          </div>
-        ) : currentPath === '/simulator' || currentPath === '/simulateur' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Renovator />
-          </div>
-        ) : currentPath === '/portfolio' || currentPath === '/realisations' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Portfolio />
-          </div>
-        ) : currentPath === '/temoignages' || currentPath === '/testimonials' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <Testimonials />
-          </div>
-        ) : currentPath === '/faq' ? (
-          <div className="bg-white py-12 md:py-24 min-h-[80vh]">
-            <FAQ />
-          </div>
         ) : (
           <>
             {/* HERO */}
@@ -286,10 +294,10 @@ const App: React.FC = () => {
             </div>
 
             {/* CALCULATOR - Clean White Background */}
-            <div id="devis" className="bg-white py-16">
-              <Calculator 
-                initialZip={estimateData?.zip} 
-                initialService={estimateData?.service} 
+            <div id="devis" className="bg-white py-16 scroll-mt-24">
+              <Calculator
+                initialZip={estimateData?.zip}
+                initialService={estimateData?.service}
               />
             </div>
 
@@ -301,7 +309,7 @@ const App: React.FC = () => {
 
             {/* PORTFOLIO */}
             <Portfolio />
-            
+
             {/* TESTIMONIALS */}
             <Testimonials />
 
